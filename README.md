@@ -1,5 +1,3 @@
-#TOC
-
 # What is MP-LAMP?
 
 MP-LAMP stands for Massive Parallel LAMP,
