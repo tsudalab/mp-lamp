@@ -1,0 +1,334 @@
+#ifndef _LAMP_SEARCH_TABLE_H_
+#define _LAMP_SEARCH_TABLE_H_
+
+#include <iostream>
+#include <sstream>
+#include <fstream>
+#include <vector>
+#include <algorithm>
+#include <list>
+#include <limits>
+
+#include <boost/array.hpp>
+#include <boost/dynamic_bitset.hpp>
+
+#include "utils.h"
+
+namespace lamp_search {
+
+class SortedItemSet {
+ public:
+  SortedItemSet() : num_(0) {}
+
+  SortedItemSet(const std::vector<int> & v) {
+    num_ = v.size();
+    int s=0;
+    for (std::vector<int>::const_iterator it=v.begin();it!=v.end();++it) {
+      set_[s++] = *it;
+    }
+    assert(s==num_);
+  }
+
+  SortedItemSet(const boost::array<int, kMaxSearchDepth> & a) {
+    int s=0;
+    for (boost::array<int, kMaxSearchDepth>::const_iterator it=a.begin();it!=a.end();++it) {
+      if (*it >= std::numeric_limits<int>::max()) break;
+      set_[s++] = *it;
+    }
+    num_=s;
+  }
+
+  SortedItemSet(const int * a) {
+    int s=0;
+    for (int i=0;i<kMaxSearchDepth;i++) {
+      if (a[i] >= std::numeric_limits<int>::max()) break;
+      set_[s++] = a[i];
+    }
+    num_=s;
+  }
+
+  bool operator==(const SortedItemSet & rhs) const {
+    if (this->num_ != rhs.num_) return false;
+    bool ret = true;
+    for (int d=0 ; d<num_ ; d++) {
+      if (this->set_[d] != rhs.set_[d]) {
+        ret = false;
+        break;
+      }
+    }
+    return ret;
+  }
+
+  SortedItemSet & operator=(const SortedItemSet & rhs) {
+    // std::cout << "d: " << rhs << std::endl;
+    // std::cout << "d: " << rhs.num_;
+    this->num_ = rhs.num_;
+    for (int d=0 ; d<this->num_ ; d++) this->set_[d] = rhs.set_[d];
+    return *this;
+  }
+
+  int & operator[](std::size_t i) { return set_[i]; }
+  const int & operator[](std::size_t i) const { return set_[i]; }
+
+  void Push(int id) {
+    //std::cout << "d2: num_=" << num_ << std::endl;
+    assert(num_<kMaxSearchDepth);
+    set_[num_++]=id;
+    std::sort(set_.begin(), set_.begin()+num_);
+  }
+
+  bool Exists(int id) const {
+    bool ret = false;
+    for (int d=0 ; d<num_ ; d++) {
+      if (set_[d] == id) {
+        ret = true;
+        break;
+      }
+    }
+    return ret;
+  }
+
+  bool Remove(int id) {
+    bool ret = false;
+    for (int d=0 ; d<num_ ; d++) {
+      if (set_[d] == id) {
+        num_--; assert(num_ >= 0);
+        for (int dd=d;dd<num_;dd++) set_[dd] = set_[dd+1];
+        ret = true;
+        break;
+      }
+    }
+    return ret;
+  }
+
+  // void Pop() {
+  //   num_--;
+  //   assert(num_ >= 0);
+  // }
+
+  void Clear() { num_=0; }
+
+  bool Empty() const { return num_ <= 0; }
+  bool Full()  const { return num_ == kMaxSearchDepth; }
+
+  friend std::ostream& operator<<(std::ostream & out, const SortedItemSet & ss);
+
+  typedef boost::array<int, kMaxSearchDepth> ItemSetType;
+
+  typedef ItemSetType::iterator iterator;
+  typedef ItemSetType::const_iterator const_iterator;
+  iterator begin() { return set_.begin(); }
+  iterator end() { return set_.begin()+num_; }
+  const_iterator begin() const { return set_.begin(); }
+  const_iterator end() const { return set_.begin()+num_; }
+
+ private:
+  ItemSetType set_;
+  int num_;
+};
+
+
+//==============================================================================
+
+class Table {
+ public:
+  Table(std::istream & item_file, std::istream & posneg_file);
+  ~Table();
+
+  void ReadItems(std::istream & is);
+  void ReadPosNeg(std::istream & is);
+
+  const std::vector< std::string > & ItemNames() const { return item_names_; }
+  const std::string & NthItemName(std::size_t i) const { return ItemNames()[i]; }
+
+  int NuItems() const { return nu_items_; }
+  int NuTransaction() const { return nu_transactions_; }
+  int PosTotal() const { return nu_pos_total_; }
+
+  std::ostream & DumpItems(std::ostream & out) const;
+  std::ostream & DumpPosNeg(std::ostream & out) const;
+  std::ostream & ShowInfo(std::ostream & out) const;
+
+  const boost::dynamic_bitset<> & NthData(std::size_t i) const {
+    return (*data_)[i];
+  }
+  const boost::dynamic_bitset<> & PosNeg() const {
+    return *posneg_;
+  }
+
+  //        pos   neg     freq
+  //---------------------------
+  // item |  t   (x-t)  |   x
+  // rest | n-t         |  N-x
+  //---------------------------
+  //      |  n   (N-n)  |   N
+
+  // lampelr local   my code                   lampelr global
+  // size_all     == total        == N      == total_size_lst (const) == NuTransaction()
+  // pos_size_all == pos_total    == n      == pos_size_lst   (const) == PosTotal()
+  // support_all  == sup          == x      == group_sup
+  // obs_t        == pos_sup      == t      == group_pos_sup
+
+  double PMin(int sup) const { return pmin_table_[sup]; }
+  double PVal(int sup, int pos_sup) const { return pval_table_[sup * (max_t_+1) + pos_sup];}
+
+  // todo: prepare confound factor version
+  // double PVal2(int sup, int pos_sup) const; // temp
+  double PMinCal(int sup) const;
+  double PMinCalSub(int sup) const;
+  double PValCal(int sup, int pos_sup) const;
+
+  void InitPMinTable();
+  void InitPValTable();
+
+  std::ostream & DumpPMinTable(std::ostream & out) const;
+  std::ostream & DumpPValTable(std::ostream & out) const;
+
+  int MaxX() const { return max_x_; }
+  int MaxT() const { return max_t_; }
+  int MaxItemInTransaction() const { return max_item_in_transaction_; }
+
+  // for test
+  void SetCorrFac(int c) { corr_fac = c; }
+  void SetSigLev(double d) {
+    siglev = d;
+    if (corr_fac > 0) adj_siglev = siglev / corr_fac;
+  }
+
+  void PrepareItemVals();
+
+  class ItemInfo {
+   public:
+    int id;
+    double pmin;
+    double pval;
+
+    int sup;
+    int pos_sup;
+
+    bool operator<(const ItemInfo& rhs) const {
+      return this->pmin < rhs.pmin;
+    }
+    friend std::ostream& operator<<(std::ostream & out, const ItemInfo & i);
+  };
+
+  struct PValCache_t {
+    long long int n; // number of usage
+    double v; // value
+  };
+
+  const std::vector<ItemInfo> & GetItemInfo() const { return item_info_; }
+
+  void SetValuesForTest(int nu_item, int nu_transaction, int nu_pos_total);
+
+ private:
+  int nu_items_;
+  std::vector< std::string > item_names_;
+
+  int nu_transactions_;
+  std::vector< std::string > transaction_names_;
+  int nu_pos_total_;
+  
+  //std::vector< boost::dynamic_bitset<> > v(10, boost::dynamic_bitset<>(3));
+  std::vector< boost::dynamic_bitset<> > * data_;
+  // std::vector< boost::dynamic_bitset<> > ** data_; // for confsize > 1
+
+  boost::dynamic_bitset<> * posneg_;
+  int max_x_;
+  int max_t_;
+  int max_item_in_transaction_;
+
+  // ----
+  // these are following lampeler variable naming. no trailing _. be careful
+  double siglev;
+  int corr_fac;
+  double adj_siglev;
+
+  // reused during PVal calculation 
+  double * pval_cal_buf; // originally pval_table
+  // ----
+
+  // stores calculated pmin value
+  std::vector<double> pmin_table_;
+  std::vector<double> pval_table_;
+
+  // curerntly not used
+  std::vector<PValCache_t> pval_cache_;
+  std::vector<PValCache_t> pmin_cache_;
+
+  std::vector<ItemInfo> item_info_; // list of item id sorted by pmin (sup)
+};
+
+//==============================================================================
+
+class TopKData {
+ public:
+  friend class DFS;
+  friend class LCM_DFS;
+
+  typedef std::pair<double, std::size_t> val_index;
+  typedef std::vector< val_index >::const_iterator const_iterator;
+
+  TopKData(const Table & t, int topk_num) :
+      t_(t), k_(topk_num) {}
+  // TopKData(const Graph & g, const Table & t, int topk_num) :
+  //     g_(g), t_(t), k_(topk_num) {}
+
+  void Init();
+
+  void ResetK(int k);
+
+  // void Insert(double pval, const boost::dynamic_bitset<> & item_bitset);
+  void Insert(double pval, const SortedItemSet & is);
+
+  double BestPVal() const { return pval_index_pair_[0].first; }
+  double KthPVal() const { return pval_index_pair_[k_-1].first; }
+  double KthIndex() const {
+    return pval_index_pair_[k_-1].second;
+  }
+
+  const val_index & Nth(std::size_t n) const { return pval_index_pair_[n]; }
+  const SortedItemSet & NthItemset(std::size_t n) const {
+    return itemset_[Nth(n).second];
+  }
+  // const boost::dynamic_bitset<> & NthItemset(std::size_t n) const {
+  //   return itemset_[Nth(n).second];
+  // }
+
+  //const Graph & GetGraph() const { return g_; }
+  const Table & GetTable() const { return t_; }
+
+  friend std::ostream& operator<<(std::ostream & out, const TopKData & topk);
+
+ private:
+  //const Graph & g_;
+  const Table & t_;
+
+  std::size_t k_;
+
+  std::vector< val_index > pval_index_pair_;
+  // prune if (pval > worst in sorted_bestK_pval_)
+  // tok k itemset sorted with the same order as sorted_bestK_pval_
+
+  std::vector<SortedItemSet> itemset_;
+  // todo: replace with SortedItemSet
+  //std::vector< boost::dynamic_bitset<> > itemset_; // sorted
+
+  void Sort();
+  static bool less(const val_index & lhs,
+                   const val_index & rhs) {
+    if (lhs.first < rhs.first) return true;
+    if (lhs.first == rhs.first) return (lhs.second < rhs.second);
+    return false;
+  }
+};
+
+//==============================================================================
+
+std::ostream & operator<<(std::ostream & out, const Table::ItemInfo & i);
+
+std::ostream & operator<<(std::ostream & out, const TopKData & topk);
+
+} // namespace lamp_search
+
+#endif // _LAMP_SEARCH_TABLE_H_
