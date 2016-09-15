@@ -88,15 +88,9 @@ or for parallel build (for 4 threads)
 $ scons -j 4
 ```
 
-It will take a while because it makes several types of binaries (opt, dbg, log)
-for both sequential and parallel versions.
-(In future releases, it will only make opt binary.)
-
-* Parallel binary *mp_lamp* will be ready at
-
-```text
-lamp_search/mp_build/opt/mp-main/mp-lamp
-```
+Parallel binary *mp_lamp* will be ready.
+Note: to run the parallel version, please use `mpiexec`
+as shown in the following example.
 	
 ## Usage
 
