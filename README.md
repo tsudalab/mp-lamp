@@ -13,7 +13,7 @@ LAMP stands for Limitless-Arity Multiple-testing Procedure.
 MP-LAMP will be ready by following the steps.
 
 1. Create an Amazon EC2 using the Amazon Linux Image.
-2. Download mp-lamp
+2. Download [mp-lamp](https://github.com/tsudalab/mp-lamp/archive/v0.1.tar.gz)
 3. Uncompress it.
 4. Move to the top of the uncompressed directory.
 5. Run the following command.
