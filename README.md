@@ -19,7 +19,7 @@ MP-LAMP will be ready by following the steps.
 5. Run the following command.
 
 ```text
-$ bash aws/_installer_single.sh
+$ bash aws/aws_installer_single.sh
 ```
 
 ## Installation to a local environment
@@ -70,6 +70,8 @@ parallel=mpicxx
 # an example for linux.
 option=-DGTEST_USE_OWN_TR1_TUPLE=1 -DHAVE_CLOCK_GETTIME
 libs=-lrt
+# an example for Mac
+# option=-msse4.2 -mpopcnt -march=corei7
 
 [paths]
 # include=/path/to/your/include_directory
