@@ -188,8 +188,10 @@ TEST (TableVBATest, PvalLogTest) {
   // --item ../local/yeast_lamp/yeast_lamp_data/bind_genes/tfsite_both_col8.csv
   // --pos ../local/yeast_lamp/yeast_lamp_data/exp/yeast_expression_col8_over10.csv
 
-  ifs1.open("../../../local/yeast_lamp/yeast_lamp_data/bind_genes/tfsite_both_col8.csv");
-  ifs2.open("../../../local/yeast_lamp/yeast_lamp_data/exp/yeast_expression_col8_over10.csv");
+  // ifs1.open("../../../local/yeast_lamp/yeast_lamp_data/bind_genes/tfsite_both_col8.csv");
+  // ifs2.open("../../../local/yeast_lamp/yeast_lamp_data/exp/yeast_expression_col8_over10.csv");
+  ifs1.open("../../../samples/sample_data/sample_item.csv");
+  ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
   TableVBA<uint64> t(ifs1, ifs2);
   ifs1.close();
   ifs2.close();
@@ -208,7 +210,7 @@ TEST (TableVBATest, PvalLogTest) {
       std::cout << "a=" << a << "\tb=" << b
                 << "\ti=" << i
                 << std::endl;
-    //EXPECT_TRUE(cond);
+    EXPECT_TRUE(cond);
   }
 
   for (int i=1;i<=t.MaxX();i++) { // sup == x
@@ -222,7 +224,7 @@ TEST (TableVBATest, PvalLogTest) {
         std::cout << "a=" << a << "\tb=" << b
                   << "\ti=" << i << "\tj=" << j
                   << std::endl;
-      // EXPECT_TRUE(cond);
+      EXPECT_TRUE(cond);
     }
   }
 }

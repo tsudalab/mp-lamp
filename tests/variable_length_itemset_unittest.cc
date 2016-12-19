@@ -318,7 +318,8 @@ TEST (VariableLengthItemsetTest, SplitTestOne) {
   EXPECT_EQ(2, src->GetItemNum(p));
   EXPECT_EQ(3, src->GetSup(p));
   EXPECT_EQ(1, src->NuItemset());
-  EXPECT_EQ(6, src->UsedCapacity());
+  EXPECT_EQ(7, src->UsedCapacity());
+  // 3 (timestampe, flag, sentinel) + 2 (NUM, SUP) + 2 (items)
 
   src->Split(dst);
 

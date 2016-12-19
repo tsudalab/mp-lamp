@@ -188,68 +188,72 @@ TEST (GraphTest, PValueTest) {
   EXPECT_TRUE(flag);
 }
 
-TEST (GraphTest, LargeReadTest2) {
-  std::ifstream ifs1, ifs2;
-  ifs1.open("../../../samples/mcf7_transcriptome/egf_motif_item.csv");
-  ifs2.open("../../../samples/mcf7_transcriptome/egf_motif_value.csv");
-  Table t(ifs1, ifs2);
-  ifs1.close();
-  ifs2.close();
+// commented out because sample files are removed.
 
-  std::stringstream s1, s2;
+// TEST (GraphTest, LargeReadTest2) {
+//   std::ifstream ifs1, ifs2;
+//   ifs1.open("../../../samples/mcf7_transcriptome/egf_motif_item.csv");
+//   ifs2.open("../../../samples/mcf7_transcriptome/egf_motif_value.csv");
+//   Table t(ifs1, ifs2);
+//   ifs1.close();
+//   ifs2.close();
 
-  t.DumpItems(s1);
-  t.DumpPosNeg(s2);
+//   std::stringstream s1, s2;
 
-  //std::cout << s1.str();
-  //std::cout << s2.str();
+//   t.DumpItems(s1);
+//   t.DumpPosNeg(s2);
 
-  // EXPECT_EQ(str1, s1.str());
-  // EXPECT_EQ(str2, s2.str());
+//   //std::cout << s1.str();
+//   //std::cout << s2.str();
 
-  std::cout << "NuItems=" << t.NuItems() << std::endl;
-  std::cout << "NuTransactions=" << t.NuTransaction() << std::endl;
-  std::cout << "postotal=" << t.PosTotal() << std::endl;
+//   // EXPECT_EQ(str1, s1.str());
+//   // EXPECT_EQ(str2, s2.str());
 
-  std::cout << "max x=" << t.MaxX() << std::endl;
-  std::cout << "max item in transaction=" << t.MaxItemInTransaction() << std::endl;
+//   std::cout << "NuItems=" << t.NuItems() << std::endl;
+//   std::cout << "NuTransactions=" << t.NuTransaction() << std::endl;
+//   std::cout << "postotal=" << t.PosTotal() << std::endl;
 
-  BOOST_FOREACH (const ItemInfo item, t.GetItemInfo()) {
-    std::cout << item << std::endl;
-  }
-}
+//   std::cout << "max x=" << t.MaxX() << std::endl;
+//   std::cout << "max item in transaction=" << t.MaxItemInTransaction() << std::endl;
 
-TEST (GraphTest, LargeReadTest) {
-  std::ifstream ifs1, ifs2;
-  ifs1.open("../../../samples/sample_data/yeast_col26/tfsite_both_col26.csv");
-  ifs2.open("../../../samples/sample_data/yeast_col26/yeast_expression_col26_over15.csv");
-  Table t(ifs1, ifs2);
-  ifs1.close();
-  ifs2.close();
+//   BOOST_FOREACH (const ItemInfo item, t.GetItemInfo()) {
+//     std::cout << item << std::endl;
+//   }
+// }
 
-  std::stringstream s1, s2;
+// commented out because sample files are removed.
 
-  t.DumpItems(s1);
-  t.DumpPosNeg(s2);
+// TEST (GraphTest, LargeReadTest) {
+//   std::ifstream ifs1, ifs2;
+//   ifs1.open("../../../samples/sample_data/yeast_col26/tfsite_both_col26.csv");
+//   ifs2.open("../../../samples/sample_data/yeast_col26/yeast_expression_col26_over15.csv");
+//   Table t(ifs1, ifs2);
+//   ifs1.close();
+//   ifs2.close();
 
-  //std::cout << s1.str();
-  //std::cout << s2.str();
+//   std::stringstream s1, s2;
 
-  // EXPECT_EQ(str1, s1.str());
-  // EXPECT_EQ(str2, s2.str());
+//   t.DumpItems(s1);
+//   t.DumpPosNeg(s2);
 
-  std::cout << "NuItems=" << t.NuItems() << std::endl;
-  std::cout << "NuTransactions=" << t.NuTransaction() << std::endl;
-  std::cout << "postotal=" << t.PosTotal() << std::endl;
+//   //std::cout << s1.str();
+//   //std::cout << s2.str();
 
-  std::cout << "max x=" << t.MaxX() << std::endl;
-  std::cout << "max t=" << t.MaxT() << std::endl;
-  std::cout << "max item in transaction=" << t.MaxItemInTransaction() << std::endl;
+//   // EXPECT_EQ(str1, s1.str());
+//   // EXPECT_EQ(str2, s2.str());
 
-  // BOOST_FOREACH (const Table::ItemInfo item, t.GetItemInfo()) {
-  //   std::cout << item << std::endl;
-  // }
-}
+//   std::cout << "NuItems=" << t.NuItems() << std::endl;
+//   std::cout << "NuTransactions=" << t.NuTransaction() << std::endl;
+//   std::cout << "postotal=" << t.PosTotal() << std::endl;
+
+//   std::cout << "max x=" << t.MaxX() << std::endl;
+//   std::cout << "max t=" << t.MaxT() << std::endl;
+//   std::cout << "max item in transaction=" << t.MaxItemInTransaction() << std::endl;
+
+//   // BOOST_FOREACH (const Table::ItemInfo item, t.GetItemInfo()) {
+//   //   std::cout << item << std::endl;
+//   // }
+// }
 
 /* Local Variables:  */
 /* compile-command: "scons -u" */

@@ -38,6 +38,8 @@
 
 namespace lamp_search {
 
+/** variable length itemset data
+ *  packed to a continuous memory region */
 class VariableLengthItemsetStack {
  public:
 
@@ -45,6 +47,11 @@ class VariableLengthItemsetStack {
   static const int FLAG = 1; // used for lifeline flag
   static const int SENTINEL = 2;
 
+  // data structure for one itemset
+  // 0: [NUM] = (-1) * (number of items + 1)
+  //    negated for indicating start of an itemset. see GetItemNum for details
+  // 1: [SUP] number of support
+  // 2: [ITM] points to the first item in the itemset
   static const int NUM = 0;
   static const int SUP = 1;
   static const int ITM = 2;
