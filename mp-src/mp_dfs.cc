@@ -68,6 +68,14 @@ DECLARE_bool(third_phase);  // true, "do third phase"
 DECLARE_int32(stack_size); // 1024*1024*64, used as int[stack_size], lamp.cc
 DEFINE_int32(give_size_max, 1024*1024*4, "maximum size of one give");
 DECLARE_int32(freq_max); // 1024*1024*64, "stack size for holding freq sets", lamp.cc
+
+DECLARE_int32(min_sig_size); // 0, "show at least top n combinations"
+DECLARE_int32(max_sig_size); // 0, "maximum size of significant item set. If 0, show all"
+DECLARE_int32(max_freq_size);
+// 0, "maximum size of frequent item set. 0 for all.\n
+// Used for 2nd phase. Should be significantly greater than max_sig_size
+
+
 DEFINE_int32(sig_max, 1024*1024*64, "stack size for holding significant sets");
 
 DEFINE_int32(bsend_buffer_size, 1024*1024*64, "size of bsend buffer");
@@ -124,7 +132,12 @@ MP_LAMP::MP_LAMP(int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m
       sup_buf_ (NULL),
       child_sup_buf_ (NULL),
       freq_stack_ (NULL),
-      significant_stack_ (NULL), 
+      final_significant_stack_ (NULL),
+      freq_comp_ (NULL),
+      final_sigset_comp_ (NULL),
+      freq_set_ (NULL),
+      final_significant_set_ (NULL),
+      infrequent_itemset_num_ (0ll),
       total_expand_num_ (0ll),
       expand_num_ (0ll),
       closed_set_num_ (0ll),
@@ -133,6 +146,30 @@ MP_LAMP::MP_LAMP(int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m
       final_sig_level_ (0.0),
       last_bcast_was_dtd_ (false)
 {
+
+  if (FLAGS_min_sig_size < 0)
+    throw std::runtime_error(std::string("negative value not allowed for min_sig_size"));
+
+  if (FLAGS_max_sig_size < 0)
+    throw std::runtime_error(std::string("negative value not allowed for max_sig_size"));
+
+  if (FLAGS_max_sig_size > 0 && FLAGS_min_sig_size > FLAGS_max_sig_size)
+    throw std::runtime_error(std::string("option conflict min_sig_size and max_sig_size"));
+
+  if (FLAGS_min_sig_size == 0) {
+    if (FLAGS_max_sig_size == 0) { // default
+      sigset_record_mode_ = SigsetRecordMode::NORMAL;
+    } else { // show at most n
+      sigset_record_mode_ = SigsetRecordMode::AT_MOST_N;
+    }
+  } else {
+    if (FLAGS_max_sig_size == 0) { // show at least n
+      sigset_record_mode_ = SigsetRecordMode::AT_LEAST_M;
+    } else { // show at least n but at most n
+      sigset_record_mode_ = SigsetRecordMode::M_TO_N;
+    }
+  }
+
   if (FLAGS_d > 0) {
     SetLogFileName();
     DBG( lfs_.open(log_file_name_.c_str(), std::ios::out); );
@@ -223,7 +260,7 @@ void MP_LAMP::InitTreeRequest() {
   // pushing tree to lifeline for the 1st wave
   int num=0;
 
-  for (std::size_t i=1;i<=k_echo_tree_branch;i++) {
+  for (int i=1;i<=k_echo_tree_branch;i++) {
     if (k_echo_tree_branch*h_+i < p_) {
       lifeline_thieves_->Push(k_echo_tree_branch*h_+i);
       bcast_targets_[num++] = k_echo_tree_branch*h_+i;
@@ -248,7 +285,7 @@ void MP_LAMP::InitTreeRequest() {
 }
 
 void MP_LAMP::SetTreeRequest() {
-  for (std::size_t i=1;i<=k_echo_tree_branch;i++) {
+  for (int i=1;i<=k_echo_tree_branch;i++) {
     if (k_echo_tree_branch*h_+i < p_) lifeline_thieves_->Push(k_echo_tree_branch*h_+i);
   }
   // if (3*h_+1 < p_) lifeline_thieves_->Push(3*h_+1);
@@ -277,7 +314,12 @@ MP_LAMP::~MP_LAMP() {
   if (sup_buf_) bsh_->Delete(sup_buf_);
   if (child_sup_buf_) bsh_->Delete(child_sup_buf_);
   if (freq_stack_) delete freq_stack_;
-  if (significant_stack_) delete significant_stack_;
+  if (final_significant_stack_) delete final_significant_stack_;
+
+  if (freq_set_) delete freq_set_;
+  if (final_significant_set_) delete final_significant_set_;
+  if (freq_comp_) delete freq_comp_;
+  if (final_sigset_comp_) delete final_sigset_comp_;
 
   if (d_) delete d_;
   if (g_) delete g_;
@@ -348,42 +390,7 @@ void MP_LAMP::InitDatabaseRoot(std::istream & is1, std::istream & is2) {
 
   g_ = new LampGraph<uint64>(*d_);
 
-  lambda_max_ = d_->MaxX();
-  // D() << "max_x=lambda_max=" << lambda_max_ << std::endl;
-  // D() << "pos_total=" << d_->PosTotal() << std::endl;
-  // d_->DumpItems(D(false));
-  // d_->DumpPMinTable(D(false));
-
-  pmin_thr_ = new double[lambda_max_+1];
-  cs_thr_ = new long long int[lambda_max_+1];
-  dtd_accum_array_base_ = new long long int[lambda_max_+4];
-  dtd_accum_recv_base_  = new long long int[lambda_max_+4];
-  accum_array_ = &(dtd_accum_array_base_[3]);
-  accum_recv_  = &(dtd_accum_recv_base_[3]);
-
-  node_stack_ =  new VariableLengthItemsetStack(FLAGS_stack_size);
-  give_stack_ =  new VariableLengthItemsetStack(FLAGS_give_size_max);
-  freq_stack_ = new VariableLengthItemsetStack(FLAGS_freq_max);
-  // node_stack_ =  new VariableLengthItemsetStack(FLAGS_stack_size, lambda_max_);
-  // give_stack_ =  new VariableLengthItemsetStack(FLAGS_give_size_max, lambda_max_);
-  // freq_stack_ = new VariableLengthItemsetStack(FLAGS_freq_max, lambda_max_);
-
-  for (int i=0;i<=lambda_max_;i++)
-    pmin_thr_[i] = d_->PMin(i);
-
-  cs_thr_[0] = 0ll; // should not be used ???
-  for (int i=1;i<=lambda_max_;i++) {
-    cs_thr_[i] = (long long int)(std::min(std::floor( FLAGS_a / pmin_thr_[i-1]),
-                                          (double)(k_cs_max)));
-    DBG( D(2) << "cs_thr[" << i << "]=\t" << cs_thr_[i]
-         << "\tpmin_thr=" << pmin_thr_[i-1] << std::endl; );
-  }
-
-  for (int i=0;i<=lambda_max_;i++)
-    accum_array_[i] = 0ll;
-
-  sup_buf_ = bsh_->New();
-  child_sup_buf_ = bsh_->New();
+  InitDatabaseCommon();
 }
 
 void MP_LAMP::InitDatabaseRoot(std::istream & is1, int posnum) {
@@ -434,42 +441,7 @@ void MP_LAMP::InitDatabaseRoot(std::istream & is1, int posnum) {
                             item_names, transaction_names);
   g_ = new LampGraph<uint64>(*d_);
 
-  lambda_max_ = d_->MaxX();
-  // D() << "max_x=lambda_max=" << lambda_max_ << std::endl;
-  // D() << "pos_total=" << d_->PosTotal() << std::endl;
-  // d_->DumpItems(D(false));
-  // d_->DumpPMinTable(D(false));
-
-  pmin_thr_ = new double[lambda_max_+1];
-  cs_thr_ = new long long int[lambda_max_+1];
-  dtd_accum_array_base_ = new long long int[lambda_max_+4];
-  dtd_accum_recv_base_  = new long long int[lambda_max_+4];
-  accum_array_ = &(dtd_accum_array_base_[3]);
-  accum_recv_  = &(dtd_accum_recv_base_[3]);
-
-  node_stack_ =  new VariableLengthItemsetStack(FLAGS_stack_size);
-  give_stack_ =  new VariableLengthItemsetStack(FLAGS_give_size_max);
-  freq_stack_ = new VariableLengthItemsetStack(FLAGS_freq_max);
-  // node_stack_ =  new VariableLengthItemsetStack(FLAGS_stack_size, lambda_max_);
-  // give_stack_ =  new VariableLengthItemsetStack(FLAGS_give_size_max, lambda_max_);
-  // freq_stack_ = new VariableLengthItemsetStack(FLAGS_freq_max, lambda_max_);
-
-  for (int i=0;i<=lambda_max_;i++)
-    pmin_thr_[i] = d_->PMin(i);
-
-  cs_thr_[0] = 0ll; // should not be used ???
-  for (int i=1;i<=lambda_max_;i++) {
-    cs_thr_[i] = (long long int)(std::min(std::floor( FLAGS_a / pmin_thr_[i-1]),
-                                          (double)(k_cs_max)));
-    DBG( D(2) << "cs_thr[" << i << "]=\t" << cs_thr_[i]
-         << "\tpmin_thr=" << pmin_thr_[i-1] << std::endl; );
-  }
-
-  for (int i=0;i<=lambda_max_;i++)
-    accum_array_[i] = 0ll;
-
-  sup_buf_ = bsh_->New();
-  child_sup_buf_ = bsh_->New();
+  InitDatabaseCommon();
 }
 
 void MP_LAMP::InitDatabaseSub(bool pos) {
@@ -507,6 +479,10 @@ void MP_LAMP::InitDatabaseSub(bool pos) {
                             NULL, NULL);
   g_ = new LampGraph<uint64>(*d_);
 
+  InitDatabaseCommon();
+}
+
+void MP_LAMP::InitDatabaseCommon() {
   lambda_max_ = d_->MaxX();
   // D() << "max_x=lambda_max=" << lambda_max_ << std::endl;
   // D() << "pos_total=" << d_->PosTotal() << std::endl;
@@ -523,9 +499,9 @@ void MP_LAMP::InitDatabaseSub(bool pos) {
   node_stack_ =  new VariableLengthItemsetStack(FLAGS_stack_size);
   give_stack_ =  new VariableLengthItemsetStack(FLAGS_give_size_max);
   freq_stack_ = new VariableLengthItemsetStack(FLAGS_freq_max);
-  // node_stack_ =  new VariableLengthItemsetStack(FLAGS_stack_size, lambda_max_);
-  // give_stack_ =  new VariableLengthItemsetStack(FLAGS_give_size_max, lambda_max_);
-  // freq_stack_ = new VariableLengthItemsetStack(FLAGS_freq_max, lambda_max_);
+
+  freq_comp_ = new sigset_compare(*freq_stack_);
+  freq_set_ = new std::set<SignificantSetResult, sigset_compare>(*freq_comp_);
 
   for (int i=0;i<=lambda_max_;i++)
     pmin_thr_[i] = d_->PMin(i);
@@ -616,8 +592,10 @@ void MP_LAMP::ClearTasks() {
     src = probe_status.MPI_SOURCE;
     tag = probe_status.MPI_TAG;
 
-    error = MPI_Recv(give_stack_->Stack(), data_count, MPI_INT,
+    error = MPI_Recv(give_stack_->Message(), data_count, MPI_INT,
                      src, tag, MPI_COMM_WORLD, &recv_status);
+    // error = MPI_Recv(give_stack_->Stack(), data_count, MPI_INT,
+    //                  src, tag, MPI_COMM_WORLD, &recv_status);
     if (error != MPI_SUCCESS) {
       DBG( D(1) << "error in MPI_Recv in ClearTasks: " << error << std::endl; );
       MPI_Abort(MPI_COMM_WORLD, 1);
@@ -1187,9 +1165,16 @@ void MP_LAMP::Search() {
   //ClearTasks();
   CheckPoint(); // needed for reseting dtd_.terminated_
 
+  // todo: calculate total final_significant_stack_ buffer size
+  //       and allocate buffer accordingly. use mpi_reduce
+  // count necessary memory size during 2hd phase
+
   if (node_stack_) delete node_stack_; node_stack_ = NULL;
-  significant_stack_ = new VariableLengthItemsetStack(FLAGS_sig_max);
-  // significant_stack_ = new VariableLengthItemsetStack(FLAGS_sig_max, lambda_max_);
+  final_significant_stack_ = new VariableLengthItemsetStack(FLAGS_sig_max);
+
+  final_sigset_comp_ = new sigset_compare(*final_significant_stack_);
+  final_significant_set_ =
+      new std::set<SignificantSetResult, sigset_compare>(*final_sigset_comp_);
 
   final_sig_level_ = FLAGS_a / final_closed_set_num_;
   CallBcast(&final_sig_level_, 1, MPI_DOUBLE);
@@ -1202,10 +1187,12 @@ void MP_LAMP::Search() {
   // collect itemset
   //   can reuse the other stack (needs to compute pval again)
   //   or prepare simpler data structure
-  if (h_==0) SortSignificantSets();
+
+  // do sort if SigsetRecordMode::NORMAL || AT_LEAST_M
+  // do not sort if SigsetRecordMode::AT_MOST_N || M_TO_N, because already sorted
+
   log_.d_.search_finish_time_ = timer_->Elapsed();
   MPI_Barrier( MPI_COMM_WORLD );
-
   {
     if (h_==0 && FLAGS_show_progress) {
       std::cout << "# " << "3rd phase end\n";
@@ -1431,9 +1418,15 @@ void MP_LAMP::SearchStraw1() {
   //ClearTasks();
   CheckPoint(); // needed for reseting dtd_.terminated_
 
+  // fixme:
+  // count necessary memory size during 2hd phase
+
   if (node_stack_) delete node_stack_; node_stack_ = NULL;
-  significant_stack_ = new VariableLengthItemsetStack(FLAGS_sig_max);
-  // significant_stack_ = new VariableLengthItemsetStack(FLAGS_sig_max, lambda_max_);
+  final_significant_stack_ = new VariableLengthItemsetStack(FLAGS_sig_max);
+
+  final_sigset_comp_ = new sigset_compare(*final_significant_stack_);
+  final_significant_set_ =
+      new std::set<SignificantSetResult, sigset_compare>(*final_sigset_comp_);
 
   final_sig_level_ = FLAGS_a / final_closed_set_num_;
   CallBcast(&final_sig_level_, 1, MPI_DOUBLE);
@@ -1442,12 +1435,9 @@ void MP_LAMP::SearchStraw1() {
     MainLoopStraw1();
   }
 
-  // implement this in main loop
-  // copy only significant itemset to buffer
-  // collect itemset
-  //   can reuse the other stack (needs to compute pval again)
-  //   or prepare simpler data structure
-  if (h_==0) SortSignificantSets();
+  // todo: can reuse the other stack (needs to compute pval again)
+  //       or prepare simpler data structure
+
   log_.d_.search_finish_time_ = timer_->Elapsed();
   MPI_Barrier( MPI_COMM_WORLD );
 
@@ -1688,7 +1678,9 @@ bool MP_LAMP::ProcessNode(int n) {
       int sup_num = bsh_->AndCountUpdate(d_->NthData(new_item), child_sup_buf_);
       
       if (sup_num < lambda_) continue;
-
+      // zoe 2017/01/25
+      // to add pruning, add something here
+      // like, if (depth_of_child >= threshold) continue;
 
       node_stack_->PushPre();
       ppc_ext_buf = node_stack_->Top();
@@ -1719,14 +1711,8 @@ bool MP_LAMP::ProcessNode(int n) {
           int pos_sup_num = bsh_->AndCount(d_->PosNeg(), child_sup_buf_);
           double pval = d_->PVal(sup_num, pos_sup_num);
           assert( pval >= 0.0 );
-          if ( pval <= sig_level_ ) {// permits == case?
-            freq_stack_->PushPre();
-            int * item = freq_stack_->Top();
-            freq_stack_->CopyItem(ppc_ext_buf, item);
-            freq_stack_->PushPostNoSort();
 
-            freq_map_.insert(std::pair<double, int*>(pval, item));
-          }
+          RecordFrequentItemset(pval, sig_level_, sup_num, pos_sup_num, ppc_ext_buf);
         }
 
         assert(sup_num >= lambda_);
@@ -1868,14 +1854,8 @@ bool MP_LAMP::ProcessNodeStraw1(int n) {
           int pos_sup_num = bsh_->AndCount(d_->PosNeg(), child_sup_buf_);
           double pval = d_->PVal(sup_num, pos_sup_num);
           assert( pval >= 0.0 );
-          if ( pval <= sig_level_ ) {// permits == case?
-            freq_stack_->PushPre();
-            int * item = freq_stack_->Top();
-            freq_stack_->CopyItem(ppc_ext_buf, item);
-            freq_stack_->PushPostNoSort();
 
-            freq_map_.insert(std::pair<double, int*>(pval, item));
-          }
+          RecordFrequentItemset(pval, sig_level_, sup_num, pos_sup_num, ppc_ext_buf);
         }
 
         assert(sup_num >= lambda_);
@@ -1989,8 +1969,9 @@ void MP_LAMP::SendGive(VariableLengthItemsetStack * st, int dst, int is_lifeline
   assert(dst>=0);
   st->SetTimestamp(dtd_.time_zone_);
   st->SetFlag(is_lifeline);
-  int * message = st->Stack();
-  int size = st->UsedCapacity();
+
+  int * message = st->Message();
+  int size = st->MessageSize();
 
   log_.d_.give_stack_max_itm_ =
       std::max(log_.d_.give_stack_max_itm_, (long long int)(st->NuItemset()));
@@ -2021,7 +2002,7 @@ void MP_LAMP::RecvGive(int src, MPI_Status probe_status) {
 
   MPI_Status recv_status;
 
-  CallRecv(give_stack_->Stack(), count, MPI_INT, src, Tag::GIVE, &recv_status);
+  CallRecv(give_stack_->Message(), count, MPI_INT, src, Tag::GIVE, &recv_status);
   dtd_.OnRecv();
   assert(src == recv_status.MPI_SOURCE);
   
@@ -2031,8 +2012,12 @@ void MP_LAMP::RecvGive(int src, MPI_Status probe_status) {
   int flag = give_stack_->Flag();
   int orig_nu_itemset = node_stack_->NuItemset();
 
-  node_stack_->MergeStack(give_stack_->Stack()+VariableLengthItemsetStack::SENTINEL+1,
-                          count-VariableLengthItemsetStack::SENTINEL-1);
+  // better implementation is possible?
+  // scanning on consecutive region is ok, so maybe not?
+  node_stack_->MergeStack(give_stack_->Bottom(),
+                          give_stack_->ItemsetCapacity() );
+  // node_stack_->MergeStack(give_stack_->Stack()+VariableLengthItemsetStack::SENTINEL+1,
+  //                         count-VariableLengthItemsetStack::SENTINEL-1);
   int new_nu_itemset = node_stack_->NuItemset();
 
   if (flag >= 0) {
@@ -2183,14 +2168,14 @@ void MP_LAMP::RecvResultRequest(int src) {
 }
 
 void MP_LAMP::SendResultReply() {
-  int * message = significant_stack_->Stack();
-  int size = significant_stack_->UsedCapacity();
+  int * message = final_significant_stack_->Message();
+  int size = final_significant_stack_->MessageSize();
 
   CallBsend(message, size, MPI_INT, bcast_source_, Tag::RESULT_REPLY);
 
   DBG( D(2) << "SendResultReply: dst=" << bcast_source_
        << std::endl; );
-  DBG( significant_stack_->PrintAll(D(3,false)); );
+  DBG( final_significant_stack_->PrintAll(D(3,false)); );
 
   echo_waiting_ = false;
   dtd_.terminated_ = true;
@@ -2204,16 +2189,190 @@ void MP_LAMP::RecvResultReply(int src, MPI_Status probe_status) {
     MPI_Abort(MPI_COMM_WORLD, 1);
   }
 
+  // fixme: do not use give_stack for this purpose
+  // allocate enough size in 3rd phase
   MPI_Status recv_status;
-  CallRecv(give_stack_->Stack(), count, MPI_INT, src, Tag::RESULT_REPLY, &recv_status);
+  CallRecv(give_stack_->Message(), count, MPI_INT, src, Tag::RESULT_REPLY, &recv_status);
   assert(src == recv_status.MPI_SOURCE);
 
-  significant_stack_->MergeStack(give_stack_->Stack()+VariableLengthItemsetStack::SENTINEL+1,
-                                 count-VariableLengthItemsetStack::SENTINEL-1);
+  DBG( D(2) << "RecvResultReply: src=" << src << std::endl; );
+  DBG( give_stack_->PrintAll(D(3,false)); );
+
+  DBG( D(4) << "final_significant_stack_" << std::endl; );
+  DBG( final_significant_stack_->PrintAll(D(4,false)); );
+
+  // for each SigsetRecordMode mode, do mergestack one by one, checking the threshold and max/min
+  switch(sigset_record_mode_) {
+    case SigsetRecordMode::NORMAL:
+      {
+        int * given_set = give_stack_->FirstItemset();
+
+        while(given_set != NULL) {
+          // calculate support from given_set
+          int sup_num, pos_sup_num;
+          double pval;
+          CalculatePval(give_stack_, given_set,
+                        &sup_num, &pos_sup_num, &pval);
+
+          assert( pval <= final_sig_level_ );
+
+          int * added_set = PushItemsetNoSort(final_significant_stack_, given_set);
+          final_significant_set_->insert(
+              SignificantSetResult(pval, added_set, sup_num, pos_sup_num)
+                                         );
+
+          given_set = give_stack_->NextItemset(given_set);
+        }
+      }
+
+      break;
+
+    case SigsetRecordMode::AT_MOST_N:
+      {
+        int * given_set = give_stack_->FirstItemset();
+
+        while(given_set != NULL) {
+          int sup_num, pos_sup_num;
+          double pval;
+          CalculatePval(give_stack_, given_set,
+                        &sup_num, &pos_sup_num, &pval);
+
+          assert( pval <= final_sig_level_ );
+
+          if (final_significant_set_->size() < (std::size_t)FLAGS_max_sig_size) {
+            int * added_set = PushItemsetNoSort(final_significant_stack_, given_set);
+            final_significant_set_->insert(
+                SignificantSetResult(pval, added_set, sup_num, pos_sup_num)
+                                           );
+          } else {
+            std::set<SignificantSetResult, sigset_compare>::iterator it = final_significant_set_->end();
+            --it;
+
+            if (!final_sigset_comp_->compare(*it, pval, given_set)) {
+              final_significant_set_->erase(it);
+
+              int * added_set = PushItemsetNoSort(final_significant_stack_, given_set);
+              final_significant_set_->insert(
+                  SignificantSetResult(pval, added_set, sup_num, pos_sup_num)
+                                             );
+            }
+          }
+          given_set = give_stack_->NextItemset(given_set);
+        }
+      }
+      break;
+
+    case SigsetRecordMode::AT_LEAST_M:
+      {
+        // the number of infrequent_itemset_num_ for rank 0 is added to
+        // infrequent_itemset_num_ ExtractSignificantSet
+
+        // insert to significant_set_ here
+        int * given_set = give_stack_->FirstItemset();
+
+        while(given_set != NULL) {
+          int sup_num, pos_sup_num;
+          double pval;
+          CalculatePval(give_stack_, given_set,
+                        &sup_num, &pos_sup_num, &pval);
+
+          if (final_significant_set_->size() < (std::size_t)FLAGS_min_sig_size) {
+            int * added_set = PushItemsetNoSort(final_significant_stack_, given_set);
+            final_significant_set_->insert(
+                SignificantSetResult(pval, added_set, sup_num, pos_sup_num)
+                                           );
+
+            if (!(pval <= final_sig_level_)) infrequent_itemset_num_++;
+
+          } else {
+            if( pval <= final_sig_level_ ) {
+              // discard if the worst one is not significant
+              if (infrequent_itemset_num_ > 0) {
+                std::set<SignificantSetResult, sigset_compare>::iterator it = final_significant_set_->end();
+                --it;
+                final_significant_set_->erase(it);
+                assert(it->pval_ > final_sig_level_);
+                infrequent_itemset_num_--;
+              }
+
+              int * added_set = PushItemsetNoSort(final_significant_stack_, given_set);
+              final_significant_set_->insert(
+                  SignificantSetResult(pval, added_set, sup_num, pos_sup_num)
+                                             );
+            }
+          }
+          given_set = give_stack_->NextItemset(given_set);
+        }
+      }
+      break;
+
+    case SigsetRecordMode::M_TO_N:
+      {
+        // the number of infrequent_itemset_num_ for rank 0 is added to
+        // infrequent_itemset_num_ ExtractSignificantSet
+
+        // insert to significant_set_ here
+        int * given_set = give_stack_->FirstItemset();
+
+        while(given_set != NULL) {
+          int sup_num, pos_sup_num;
+          double pval;
+          CalculatePval(give_stack_, given_set,
+                        &sup_num, &pos_sup_num, &pval);
+
+          if (final_significant_set_->size() < (std::size_t)FLAGS_min_sig_size) {
+            int * added_set = PushItemsetNoSort(final_significant_stack_, given_set);
+            final_significant_set_->insert(
+                SignificantSetResult(pval, added_set, sup_num, pos_sup_num)
+                                           );
+
+            if (!(pval <= final_sig_level_)) infrequent_itemset_num_++;
+
+          } else if (final_significant_set_->size() < (std::size_t)FLAGS_max_sig_size) {
+            if( pval <= final_sig_level_ ) {
+              // discard if worst one is not significant
+              if (infrequent_itemset_num_ > 0) {
+                std::set<SignificantSetResult, sigset_compare>::iterator it = final_significant_set_->end();
+                --it;
+                final_significant_set_->erase(it);
+                assert(it->pval_ > final_sig_level_);
+                infrequent_itemset_num_--;
+              }
+
+              int * added_set = PushItemsetNoSort(final_significant_stack_, given_set);
+              final_significant_set_->insert(
+                  SignificantSetResult(pval, added_set, sup_num, pos_sup_num)
+                                             );
+            }
+
+          } else { // count >= FLAGS_max_sig_size
+            std::set<SignificantSetResult, sigset_compare>::iterator it = final_significant_set_->end();
+            --it;
+
+            if (!final_sigset_comp_->compare(*it, pval, given_set)) {
+              final_significant_set_->erase(it);
+
+              int * added_set = PushItemsetNoSort(final_significant_stack_, given_set);
+              final_significant_set_->insert(
+                  SignificantSetResult(pval, added_set, sup_num, pos_sup_num)
+                                             );
+            }
+          }
+          given_set = give_stack_->NextItemset(given_set);
+        }
+
+      }
+      break;
+
+    default:
+      throw std::runtime_error(std::string("unknown mode in RecvResultReply"));
+      break;
+  }
+
   give_stack_->Clear();
 
   DBG( D(2) << "RecvResultReply: src=" << src << std::endl; );
-  DBG( significant_stack_->PrintAll(D(3,false)); );
+  DBG( final_significant_stack_->PrintAll(D(3,false)); );
 
   // using the same flags as accum count, should be fixed
   bool flag = false;
@@ -2236,30 +2395,244 @@ void MP_LAMP::RecvResultReply(int src, MPI_Status probe_status) {
   }
 }
 
+/** Extract significant itemsets
+ *  using the fact that give_stack_ is already sorted by RecordFrequentItemset */
 void MP_LAMP::ExtractSignificantSet() {
-  std::multimap< double, int * >::iterator it;
-  for (it=freq_map_.begin(); it != freq_map_.end();++it) {
-    // permits == case
-    if ((*it).first <= final_sig_level_) {
-      significant_stack_->PushPre();
-      int * item = significant_stack_->Top();
-      significant_stack_->CopyItem((*it).second, item);
-      significant_stack_->PushPostNoSort();
-    }
-    else break;
+  // todo: allocate final_significant_stack_ here
+  // count number, allocate, extract
+
+  infrequent_itemset_num_ = 0ll;
+
+  std::set<SignificantSetResult, sigset_compare>::iterator it;
+  DBG( D(3) << "freq_set_=" << std::hex << (uint64)freq_set_ << std::endl; );
+
+  switch(sigset_record_mode_) {
+    case SigsetRecordMode::NORMAL:
+      {
+        for (it=freq_set_->begin(); it != freq_set_->end(); ++it) {
+          if(it->pval_ <= final_sig_level_) {
+            int * itemset = PushItemsetNoSort(final_significant_stack_, it->set_);
+
+            if (h_==0) {
+              final_significant_set_->insert(
+                  SignificantSetResult(it->pval_, itemset, it->sup_num_, it->pos_sup_num_)
+                                             );
+            }
+          }
+          else break;
+        }
+      }
+      break;
+    case SigsetRecordMode::AT_MOST_N:
+      {
+        int64 final_sigset_count = 0ll;
+
+        for (it=freq_set_->begin(); it != freq_set_->end(); ++it) {
+          if( it->pval_ <= final_sig_level_ && final_sigset_count < FLAGS_max_sig_size ) {
+            final_sigset_count++;
+            int * itemset = PushItemsetNoSort(final_significant_stack_, it->set_);
+
+            if (h_==0) {
+              final_significant_set_->insert(
+                  SignificantSetResult(it->pval_, itemset, it->sup_num_, it->pos_sup_num_)
+                                             );
+            }
+          }
+          else break;
+        }
+      }
+      break;
+    case SigsetRecordMode::AT_LEAST_M:
+      {
+        int64 final_sigset_count = 0ll;
+
+        for (it=freq_set_->begin(); it != freq_set_->end(); ++it) {
+          if (it->pval_ <= final_sig_level_ || final_sigset_count < FLAGS_min_sig_size) {
+            final_sigset_count++;
+            if (!(it->pval_ <= final_sig_level_)) infrequent_itemset_num_++;
+
+            int * itemset = PushItemsetNoSort(final_significant_stack_, it->set_);
+            if (h_==0) {
+              final_significant_set_->insert(
+                  SignificantSetResult(it->pval_, itemset, it->sup_num_, it->pos_sup_num_)
+                                             );
+            }
+          }
+          else break;
+        }
+      }
+      break;
+    case SigsetRecordMode::M_TO_N:
+      {
+        int64 final_sigset_count = 0ll;
+
+        for (it=freq_set_->begin(); it != freq_set_->end(); ++it) {
+          if ( final_sigset_count < FLAGS_min_sig_size ||
+               (it->pval_ <= final_sig_level_ && final_sigset_count < FLAGS_max_sig_size) ) {
+            final_sigset_count++;
+            if (!(it->pval_ <= final_sig_level_)) infrequent_itemset_num_++;
+
+            int * itemset = PushItemsetNoSort(final_significant_stack_, it->set_);
+            if (h_==0) {
+              final_significant_set_->insert(
+                  SignificantSetResult(it->pval_, itemset, it->sup_num_, it->pos_sup_num_)
+                                             );
+            }
+          }
+          else break;
+        }
+      }
+      break;
+    default:
+      throw std::runtime_error(std::string("unknown mode in ExtractSignificantSet"));
+      break;
+  }
+
+}
+
+// fixme:
+// bug in AT_MOST_N and M_TO_N
+// because 2nd phase sig level is relaxed
+void MP_LAMP::RecordFrequentItemset(double pval, double sig_level,
+                                    int sup_num, int pos_sup_num,
+                                    int * itemset) {
+  // fixme: change some options from int32 to int64
+
+  switch(sigset_record_mode_) {
+    case SigsetRecordMode::NORMAL:
+      {
+        if (pval <= sig_level) { // == means significant
+          int * item = PushItemsetNoSort(freq_stack_, itemset);
+          freq_set_->insert(
+              SignificantSetResult(pval, item, sup_num, pos_sup_num)
+                            );
+        }
+      }
+      break;
+
+    case SigsetRecordMode::AT_MOST_N:
+      {
+        // todo: add pruning based on top_n
+
+        if (freq_set_->size() < (std::size_t)FLAGS_max_sig_size) {
+          if (pval <= sig_level) { // == means significant
+            int * item = PushItemsetNoSort(freq_stack_, itemset);
+            freq_set_->insert(
+                SignificantSetResult(pval, item, sup_num, pos_sup_num)
+                              );
+          }
+        } else {
+          std::set<SignificantSetResult, sigset_compare>::iterator it = freq_set_->end();
+          --it;
+
+          // erase, prepare for insert and return true
+          if (!freq_comp_->compare(*it, pval, itemset)) {
+            freq_set_->erase(it);
+            int * item = PushItemsetNoSort(freq_stack_, itemset);
+            freq_set_->insert(
+                SignificantSetResult(pval, item, sup_num, pos_sup_num)
+                              );
+          }
+        }
+      }
+      break;
+
+    case SigsetRecordMode::AT_LEAST_M:
+      {
+        if (freq_set_->size() < (std::size_t)FLAGS_min_sig_size) {
+          int * item = PushItemsetNoSort(freq_stack_, itemset);
+          freq_set_->insert(
+              SignificantSetResult(pval, item, sup_num, pos_sup_num)
+                            );
+
+          if (!(pval <= sig_level)) infrequent_itemset_num_++;
+
+        } else {
+          // insert if new one is significant
+          if (pval <= sig_level) { // == means significant
+            // discard if worst one is not significant
+            if (infrequent_itemset_num_ > 0) {
+              std::set<SignificantSetResult, sigset_compare>::iterator it = freq_set_->end();
+              --it;
+              freq_set_->erase(it);
+              assert(it->pval_ > sig_level);
+              infrequent_itemset_num_--;
+            }
+
+            int * item = PushItemsetNoSort(freq_stack_, itemset);
+            freq_set_->insert(
+                SignificantSetResult(pval, item, sup_num, pos_sup_num)
+                              );
+          }
+
+        }
+        DBG( D(4) << "freq_stack_" << std::endl; );
+        DBG( freq_stack_->PrintAll(D(4,false)); );
+      }
+      break;
+
+    case SigsetRecordMode::M_TO_N:
+      {
+        if (freq_set_->size() < (std::size_t)FLAGS_min_sig_size) {
+          int * item = PushItemsetNoSort(freq_stack_, itemset);
+          freq_set_->insert(
+              SignificantSetResult(pval, item, sup_num, pos_sup_num)
+                            );
+
+          if (!(pval <= sig_level)) infrequent_itemset_num_++;
+
+        } else if (freq_set_->size() < (std::size_t)FLAGS_max_sig_size) {
+          // insert if new one is significant
+          if (pval <= sig_level) { // == means significant
+            // discard if worst one is not significant
+            if (infrequent_itemset_num_ > 0) {
+              std::set<SignificantSetResult, sigset_compare>::iterator it = freq_set_->end();
+              --it;
+              freq_set_->erase(it);
+              assert(it->pval_ > sig_level);
+              infrequent_itemset_num_--;
+            }
+
+            int * item = PushItemsetNoSort(freq_stack_, itemset);
+            freq_set_->insert(
+                SignificantSetResult(pval, item, sup_num, pos_sup_num)
+                              );
+          }
+
+        } else { // count >= FLAGS_max_sig_size
+          std::set<SignificantSetResult, sigset_compare>::iterator it = freq_set_->end();
+          --it;
+
+          if (!freq_comp_->compare(*it, pval, itemset)) {
+            freq_set_->erase(it);
+            int * item = PushItemsetNoSort(freq_stack_, itemset);
+            freq_set_->insert(
+                SignificantSetResult(pval, item, sup_num, pos_sup_num)
+                              );
+          }
+
+        }
+        // todo: can combine with pruning based on top n?
+
+      }
+      break;
+
+    default:
+      throw std::runtime_error(std::string("unknown mode in RecordFrequentItemset"));
+      break;
   }
 }
 
 void MP_LAMP::SortSignificantSets() {
-  int * set = significant_stack_->FirstItemset();
+  int * set = final_significant_stack_->FirstItemset();
 
   while(set != NULL) {
     // calculate support from set
     bsh_->Set(sup_buf_);
     {
-      int n = significant_stack_->GetItemNum(set);
+      int n = final_significant_stack_->GetItemNum(set);
       for (int i=0;i<n;i++) {
-        int item = significant_stack_->GetNthItem(set, i);
+        int item = final_significant_stack_->GetNthItem(set, i);
         bsh_->And(d_->NthData(item), sup_buf_);
       }
     }
@@ -2268,11 +2641,10 @@ void MP_LAMP::SortSignificantSets() {
     int pos_sup_num = bsh_->AndCount(d_->PosNeg(), sup_buf_);
     double pval = d_->PVal(sup_num, pos_sup_num);
 
-    significant_set_.insert(
-        SignificantSetResult(pval, set, sup_num, pos_sup_num,
-                             significant_stack_)
-                            );
-    set = significant_stack_->NextItemset(set);
+    final_significant_set_->insert(
+        SignificantSetResult(pval, set, sup_num, pos_sup_num)
+                                   );
+    set = final_significant_stack_->NextItemset(set);
   }
 }
 
@@ -2662,11 +3034,14 @@ std::ostream & MP_LAMP::PrintResults(std::ostream & out) const {
 std::ostream & MP_LAMP::PrintSignificantSet(std::ostream & out) const {
   std::stringstream s;
 
-  s << "# number of significant patterns=" << significant_set_.size() << std::endl;
+  // fixme:
+  // add information for non default SigsetRecordMode
+
+  s << "# number of significant patterns=" << final_significant_set_->size() << std::endl;
   s << "# pval (raw)    pval (corr)         freq     pos        # items items\n";
   for(std::set<SignificantSetResult, sigset_compare>::const_iterator it
-          = significant_set_.begin();
-      it != significant_set_.end(); ++it) {
+          = final_significant_set_->begin();
+      it != final_significant_set_->end(); ++it) {
 
     s << ""   << std::setw(16) << std::left << (*it).pval_ << std::right
       << ""  << std::setw(16) << std::left << (*it).pval_ * final_closed_set_num_ << std::right
@@ -2680,7 +3055,7 @@ std::ostream & MP_LAMP::PrintSignificantSet(std::ostream & out) const {
     //   << "\titems";
 
     const int * item = (*it).set_;
-    significant_stack_->Print(s, d_->ItemNames(), item);
+    final_significant_stack_->Print(s, d_->ItemNames(), item);
   }
 
   out << s.str() << std::flush;

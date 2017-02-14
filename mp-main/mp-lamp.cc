@@ -200,6 +200,13 @@ int main(int argc, char **argv) {
       MPI_Abort(MPI_COMM_WORLD, 1);
       return 1;
     }
+    catch(std::runtime_error & err)
+    {
+      std::cout << err.what() << std::endl;
+      delete search;
+      MPI_Abort(MPI_COMM_WORLD, 1);
+      return 1;
+    }
     search_end_time = Timer::GetInstance()->Elapsed();
 
     if (rank==0)

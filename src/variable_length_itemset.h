@@ -36,6 +36,8 @@
 #include <iomanip>
 #include <sstream>
 
+#include "utils.h"
+
 namespace lamp_search {
 
 /** variable length itemset data
@@ -43,31 +45,35 @@ namespace lamp_search {
 class VariableLengthItemsetStack {
  public:
 
-  static const int TIMESTAMP = 0;
-  static const int FLAG = 1; // used for lifeline flag
-  static const int SENTINEL = 2;
+  // static const int64 TIMESTAMP = 0;
+  // static const int64 FLAG = 1; // used for lifeline flag
+
+  // sentinel data needed for RemoveOneItemset()
+  // should be initialized to a negative integer (I almost forgot)
+  // static const int64 SENTINEL = 2;
+  static const int64 SENTINEL = 0;
 
   // data structure for one itemset
   // 0: [NUM] = (-1) * (number of items + 1)
   //    negated for indicating start of an itemset. see GetItemNum for details
   // 1: [SUP] number of support
   // 2: [ITM] points to the first item in the itemset
-  static const int NUM = 0;
-  static const int SUP = 1;
-  static const int ITM = 2;
+  static const int64 NUM = 0;
+  static const int64 SUP = 1;
+  static const int64 ITM = 2;
 
   // todo: add check
-  static const int kMaxItemsPerSet = 1024 * 1024 - ITM; // max 4MB
+  static const int64 kMaxItemsPerSet = 1024 * 1024 - ITM; // max 4MB
 
   // todo: add check. size must be greater than kMaxItemsPerSet
   // should be like 256 * kMaxItemsPerSet or something
-  VariableLengthItemsetStack(std::size_t size);
+  VariableLengthItemsetStack(int64 size);
 
   // VariableLengthItemsetStack(std::size_t size, int sup_max);
 
   ~VariableLengthItemsetStack();
 
-  // move top_ and inc nu_itemset_;
+  // move top_n_ and inc nu_itemset_;
   void PushPre();
   // update 
   void PushPost();
@@ -96,11 +102,13 @@ class VariableLengthItemsetStack {
   bool Exist(const int * index, int item) const;
 
   // return ptr to stack_
-  int * Stack() const { return stack_; }
+  int * Stack() const { return m_->stack_; }
 
   // return ptr to top item
   int * Top() const;
   int * FirstItemset() const;
+  /** Bottom is equal to FirstItemset if nu_itemset_ > 0 */
+  int * Bottom() const;
   
   void RemoveOneItemset();
 
@@ -127,22 +135,35 @@ class VariableLengthItemsetStack {
   // discard elements with less than support threshold
   void GC(int sup_threshold);
 
-  bool Empty() const { return nu_itemset_ == 0; }
+  bool Empty() const { return NuItemset() == 0; }
 
   // when to call this? every time adding item?
   bool Full() const;
 
-  int TotalCapacity() const { return total_capacity_; }
-  int UsedCapacity() const { return used_capacity_; }
+  int64 TotalCapacity() const { return m_->total_capacity_; }
+  int64 UsedCapacity() const { return m_->used_capacity_; }
+  /** capacity used for itemset data */
+  int64 ItemsetCapacity() const { return m_->used_capacity_ - SENTINEL - 1; }
 
-  int NuItemset() const { return nu_itemset_; }
+  int64 NuItemset() const { return m_->nu_itemset_; }
 
   // functions for mp-lamp
-  void SetTimestamp(int ts) { stack_[TIMESTAMP] = ts; }
-  int Timestamp() { return stack_[TIMESTAMP]; }
+  void SetTimestamp(int ts) { m_->timestamp_ = ts; }
+  int Timestamp() { return m_->timestamp_; }
+  // hoge;
+  // void SetTimestamp(int ts) { stack_[TIMESTAMP] = ts; }
+  // int Timestamp() { return stack_[TIMESTAMP]; }
 
-  void SetFlag(int flg) { stack_[FLAG] = flg; }
-  int Flag() { return stack_[FLAG]; }
+  void SetFlag(int flg) { m_->flag_ = flg; }
+  int Flag() { return m_->flag_; }
+  // hoge;
+  // void SetFlag(int flg) { stack_[FLAG] = flg; }
+  // int Flag() { return stack_[FLAG]; }
+
+  int * Message();
+
+  /** calculate message size based on message_.used_capacity_ */
+  std::size_t MessageSize() const;
 
   // idea
   // push procedure
@@ -162,17 +183,30 @@ class VariableLengthItemsetStack {
                       const int * index) const;
 
  private:
-  int * stack_;
-  // note: top_ points to the head of the last item
-  //       stack_[used_capacity_] points to the head of the next item
-  int * top_;
+  struct MessageBody {
+    int timestamp_;
+    int flag_;
 
-  // note: is this enough?
-  int total_capacity_;
-  int used_capacity_;
+    // note: stack_[top_n_] points to the head of the last item
+    //       stack_[used_capacity_] points to the head of the next item
+    int64 top_n_;
+    // note: is int32 enough?
+    int64 total_capacity_;
+    int64 used_capacity_;
+    int64 nu_itemset_;
 
-  std::size_t nu_itemset_;
+    int stack_[];
+  };
 
+  // hoge;
+  // check all stack_, top_, ... usage and rewrite as needed
+  // int * stack_;
+
+  /** message data */
+  MessageBody * m_;
+  int64 max_message_size_;
+
+  // not needed in current mp-lamp algorithm
   // int sup_max_;
   // int * sup_hist_; // sup histogram
 };

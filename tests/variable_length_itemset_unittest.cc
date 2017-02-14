@@ -66,7 +66,7 @@ TEST (VariableLengthItemsetTest, OperationTest) {
   EXPECT_EQ(2, s->GetItemNum(p));
   EXPECT_EQ(3, s->GetSup(p));
   EXPECT_EQ(1, s->NuItemset());
-  EXPECT_EQ(7, s->UsedCapacity()); // 4 + 3 for sentinel and timestamp
+  EXPECT_EQ(5, s->UsedCapacity()); // 4 + 1 for sentinel
 
   s->PushPre();
   p = s->Top();
@@ -81,7 +81,7 @@ TEST (VariableLengthItemsetTest, OperationTest) {
   EXPECT_EQ(3, s->GetItemNum(p));
   EXPECT_EQ(2, s->GetSup(p));
   EXPECT_EQ(2, s->NuItemset());
-  EXPECT_EQ(12, s->UsedCapacity()); // 9 + 3 for sentinel and timestamp
+  EXPECT_EQ(10, s->UsedCapacity()); // 9 + 1 for sentinel
 
   s->Pop();
   EXPECT_EQ(1, s->NuItemset());
@@ -91,7 +91,7 @@ TEST (VariableLengthItemsetTest, OperationTest) {
   EXPECT_EQ(2, s->GetItemNum(p));
   EXPECT_EQ(3, s->GetSup(p));
   EXPECT_EQ(1, s->NuItemset());
-  EXPECT_EQ(7, s->UsedCapacity()); // 4 + 3 for sentinel and timestamp
+  EXPECT_EQ(5, s->UsedCapacity()); // 4 + 1 for sentinel
 
   s->Pop();
   EXPECT_EQ(0, s->NuItemset());
@@ -128,7 +128,7 @@ TEST (VariableLengthItemsetTest, PushTest) {
   EXPECT_EQ(2, s->GetItemNum(p));
   EXPECT_EQ(3, s->GetSup(p));
   EXPECT_EQ(1, s->NuItemset());
-  EXPECT_EQ(7, s->UsedCapacity()); // 4 + 3 for sentinel and timestamp
+  EXPECT_EQ(5, s->UsedCapacity()); // 4 + 1 for sentinel
 
   s->PushPre();
   p = s->Top();
@@ -142,7 +142,7 @@ TEST (VariableLengthItemsetTest, PushTest) {
   EXPECT_EQ(3, s->GetItemNum(p));
   EXPECT_EQ(2, s->GetSup(p));
   EXPECT_EQ(2, s->NuItemset());
-  EXPECT_EQ(12, s->UsedCapacity()); // 9 + 3 for sentinel and timestamp
+  EXPECT_EQ(10, s->UsedCapacity()); // 9 + 1 for sentinel
 
   s->Pop();
   EXPECT_EQ(1, s->NuItemset());
@@ -152,7 +152,7 @@ TEST (VariableLengthItemsetTest, PushTest) {
   EXPECT_EQ(2, s->GetItemNum(p));
   EXPECT_EQ(3, s->GetSup(p));
   EXPECT_EQ(1, s->NuItemset());
-  EXPECT_EQ(7, s->UsedCapacity()); // 4 + 3 for sentinel and timestamp
+  EXPECT_EQ(5, s->UsedCapacity()); // 4 + 1 for sentinel
 
   s->Pop();
   EXPECT_EQ(0, s->NuItemset());
@@ -188,7 +188,7 @@ TEST (VariableLengthItemsetTest, SplitTestEven) {
   EXPECT_EQ(3, src->GetItemNum(p));
   EXPECT_EQ(2, src->GetSup(p));
   EXPECT_EQ(2, src->NuItemset());
-  EXPECT_EQ(12, src->UsedCapacity()); // 9 + 3 for sentinel and timestamp
+  EXPECT_EQ(10, src->UsedCapacity()); // 9 + 1 for sentinel
 
   src->Split(dst);
 
@@ -203,7 +203,7 @@ TEST (VariableLengthItemsetTest, SplitTestEven) {
   EXPECT_EQ(NULL, p);
 
   EXPECT_EQ(1, src->NuItemset());
-  EXPECT_EQ(7, src->UsedCapacity()); // 4 + 3 for sentinel and timestamp
+  EXPECT_EQ(5, src->UsedCapacity()); // 4 + 1 for sentinel
 
   std::cout << "dst\n";
 
@@ -216,7 +216,7 @@ TEST (VariableLengthItemsetTest, SplitTestEven) {
   EXPECT_EQ(NULL, p);
 
   EXPECT_EQ(1, dst->NuItemset());
-  EXPECT_EQ(8, dst->UsedCapacity()); // 5 + 3 for sentinel and timestamp
+  EXPECT_EQ(6, dst->UsedCapacity()); // 5 + 1 for sentinel
 
   delete src;
   delete dst;
@@ -259,7 +259,9 @@ TEST (VariableLengthItemsetTest, SplitTestOdd) {
   EXPECT_EQ(4, src->GetItemNum(p));
   EXPECT_EQ(1, src->GetSup(p));
   EXPECT_EQ(3, src->NuItemset());
-  EXPECT_EQ(18, src->UsedCapacity());
+  EXPECT_EQ(16, src->UsedCapacity());
+
+  src->PrintAll(std::cout);
 
   src->Split(dst);
 
@@ -279,7 +281,7 @@ TEST (VariableLengthItemsetTest, SplitTestOdd) {
   EXPECT_EQ(NULL, p);
 
   EXPECT_EQ(2, src->NuItemset());
-  EXPECT_EQ(13, src->UsedCapacity());
+  EXPECT_EQ(11, src->UsedCapacity());
 
   std::cout << "dst\n";
 
@@ -292,7 +294,7 @@ TEST (VariableLengthItemsetTest, SplitTestOdd) {
   EXPECT_EQ(NULL, p);
 
   EXPECT_EQ(1, dst->NuItemset());
-  EXPECT_EQ(8, dst->UsedCapacity());
+  EXPECT_EQ(6, dst->UsedCapacity());
 
   delete src;
   delete dst;
@@ -318,8 +320,8 @@ TEST (VariableLengthItemsetTest, SplitTestOne) {
   EXPECT_EQ(2, src->GetItemNum(p));
   EXPECT_EQ(3, src->GetSup(p));
   EXPECT_EQ(1, src->NuItemset());
-  EXPECT_EQ(7, src->UsedCapacity());
-  // 3 (timestampe, flag, sentinel) + 2 (NUM, SUP) + 2 (items)
+  EXPECT_EQ(5, src->UsedCapacity());
+  // 1 (sentinel) + 2 (NUM, SUP) + 2 (items)
 
   src->Split(dst);
 
@@ -334,7 +336,7 @@ TEST (VariableLengthItemsetTest, SplitTestOne) {
   EXPECT_EQ(NULL, p);
 
   EXPECT_EQ(1, src->NuItemset());
-  EXPECT_EQ(7, src->UsedCapacity());
+  EXPECT_EQ(5, src->UsedCapacity());
 
   std::cout << "dst\n";
 
@@ -342,7 +344,7 @@ TEST (VariableLengthItemsetTest, SplitTestOne) {
   EXPECT_EQ(NULL, p);
 
   EXPECT_EQ(0, dst->NuItemset());
-  EXPECT_EQ(3, dst->UsedCapacity());
+  EXPECT_EQ(1, dst->UsedCapacity());
 
   delete src;
   delete dst;
@@ -377,7 +379,7 @@ TEST (VariableLengthItemsetTest, MergeTest) {
   EXPECT_EQ(3, src->GetItemNum(p));
   EXPECT_EQ(2, src->GetSup(p));
   EXPECT_EQ(2, src->NuItemset());
-  EXPECT_EQ(12, src->UsedCapacity());
+  EXPECT_EQ(10, src->UsedCapacity());
 
   // dst
 
@@ -393,14 +395,14 @@ TEST (VariableLengthItemsetTest, MergeTest) {
   EXPECT_EQ(4, dst->GetItemNum(p));
   EXPECT_EQ(1, dst->GetSup(p));
   EXPECT_EQ(1, dst->NuItemset());
-  EXPECT_EQ(9, dst->UsedCapacity());
+  EXPECT_EQ(7, dst->UsedCapacity());
 
   // merge
 
   src->Merge(dst);
 
   EXPECT_EQ(3, src->NuItemset());
-  EXPECT_EQ(18, src->UsedCapacity());
+  EXPECT_EQ(16, src->UsedCapacity());
 
   p = src->FirstItemset();
   EXPECT_NE((int *)NULL, p);
@@ -431,7 +433,7 @@ TEST (VariableLengthItemsetTest, MergeTest) {
   EXPECT_EQ(NULL, p);
 
   EXPECT_EQ(0, dst->NuItemset());
-  EXPECT_EQ(3, dst->UsedCapacity());
+  EXPECT_EQ(1, dst->UsedCapacity());
 
   delete src;
   delete dst;
@@ -466,7 +468,7 @@ TEST (VariableLengthItemsetTest, MergeStackTest) {
   EXPECT_EQ(3, src->GetItemNum(p));
   EXPECT_EQ(2, src->GetSup(p));
   EXPECT_EQ(2, src->NuItemset());
-  EXPECT_EQ(12, src->UsedCapacity());
+  EXPECT_EQ(10, src->UsedCapacity());
 
   // dst
 
@@ -482,15 +484,16 @@ TEST (VariableLengthItemsetTest, MergeStackTest) {
   EXPECT_EQ(4, dst->GetItemNum(p));
   EXPECT_EQ(1, dst->GetSup(p));
   EXPECT_EQ(1, dst->NuItemset());
-  EXPECT_EQ(9, dst->UsedCapacity());
+  EXPECT_EQ(7, dst->UsedCapacity());
 
   // merge
-
-  src->MergeStack((dst->Stack())+VariableLengthItemsetStack::SENTINEL+1,
-                  dst->UsedCapacity()-VariableLengthItemsetStack::SENTINEL-1);
+  src->MergeStack(dst->Bottom(),
+                  dst->ItemsetCapacity());
+  // src->MergeStack((dst->Stack())+VariableLengthItemsetStack::SENTINEL+1,
+  //                 dst->UsedCapacity()-VariableLengthItemsetStack::SENTINEL-1);
 
   EXPECT_EQ(3, src->NuItemset());
-  EXPECT_EQ(18, src->UsedCapacity());
+  EXPECT_EQ(16, src->UsedCapacity());
 
   p = src->FirstItemset();
   EXPECT_NE((int *)NULL, p);
@@ -521,7 +524,7 @@ TEST (VariableLengthItemsetTest, MergeStackTest) {
   EXPECT_EQ(NULL, p);
 
   EXPECT_EQ(0, dst->NuItemset());
-  EXPECT_EQ(3, dst->UsedCapacity());
+  EXPECT_EQ(1, dst->UsedCapacity());
 
   delete src;
   delete dst;

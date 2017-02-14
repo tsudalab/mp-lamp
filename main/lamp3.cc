@@ -78,6 +78,8 @@ int main(int argc, char ** argv)
     return 1;
   }
 
+  // error if at_least_n > at_most_n
+
   long long int search_start_time, search_end_time;
   Timer::GetInstance()->Start();
 
@@ -160,11 +162,19 @@ int main(int argc, char ** argv)
   d.ShowInfo(std::cout);
 
   search_start_time = Timer::GetInstance()->Elapsed();
-  if (FLAGS_loop)
-    search.SearchLoop();
-  else
-    search.Search();
-  search_end_time = Timer::GetInstance()->Elapsed();
+  try
+  {
+    if (FLAGS_loop)
+      search.SearchLoop();
+    else
+      search.Search();
+    search_end_time = Timer::GetInstance()->Elapsed();
+  }
+  catch(std::runtime_error & err)
+  {
+    std::cout << err.what() << std::endl;
+    return 1;
+  }
 
   std::cout << "# time all="
             << std::setw(12) << search_end_time / GIGA

@@ -465,7 +465,7 @@ void DatabaseReader<Block>::ReadPosNeg(std::istream & is,
     trans_counter++;
   }
 
-  if (non_zero_trans_list_.size() != non_zero_trans_counter)
+  if (non_zero_trans_list_.size() != (std::size_t)non_zero_trans_counter)
     throw std::runtime_error("item file / positive file non zero trans mismatch");
   if (nu_trans != trans_counter)
     throw std::runtime_error("item file / positive file trans mismatch");

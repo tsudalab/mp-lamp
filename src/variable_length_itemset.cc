@@ -38,46 +38,64 @@
 
 namespace lamp_search {
 
-VariableLengthItemsetStack::VariableLengthItemsetStack(std::size_t size)
-    : stack_ (NULL), top_ (NULL)
+VariableLengthItemsetStack::VariableLengthItemsetStack(int64 size)
 {
+  std::size_t s = sizeof (MessageBody) - sizeof (int);
+  max_message_size_ = s + size * sizeof(int);
+  int * temp = new int[max_message_size_];
+  m_ = (MessageBody*)temp;
+
+  m_->timestamp_ = 0; // timestamp
+  m_->flag_ = 0;
+
+  m_->top_n_ = SENTINEL; // initial top_n_ points to a special location
+
+  m_->total_capacity_ = size;
+  m_->used_capacity_ = SENTINEL+1; // including sentinel
+  m_->nu_itemset_ = 0;
+
+  m_->stack_[SENTINEL] = -1; // negative integer as a sentinel for RemoveOneItemset
+  // m_->stack_[TIMESTAMP] = 0; // timestamp
+  // m_->stack_[SENTINEL] = -1; // negative integer as a sentinel for RemoveOneItemset
+
+
   //assert(size >= kMaxItemsPerSet + SENTINEL);
 
-  total_capacity_ = size;
-  stack_ = new int[size];
-  stack_[TIMESTAMP] = 0; // timestamp
-  stack_[SENTINEL] = -1; // sentinel
-  top_ = &(stack_[SENTINEL]); // is this correct?
-  nu_itemset_ = 0;
-  used_capacity_ = SENTINEL+1; // including sentinel
-
+  // not needed for current mp-lamp algorithm
   // sup_hist_ = new int[sup_max_];
   // for (int i=0;i<sup_max_;i++)
   //   sup_hist_[i] = 0;
 }
 
 VariableLengthItemsetStack::~VariableLengthItemsetStack() {
-  if (stack_) delete [] stack_;
-  // if (sup_hist_) delete [] sup_hist_;
+  delete [] (int *)m_;
+}
+
+int * VariableLengthItemsetStack::Message() {
+  return (int *)m_;
+}
+
+std::size_t VariableLengthItemsetStack::MessageSize() const {
+  return (max_message_size_ - (m_->total_capacity_ - m_->used_capacity_) * sizeof(int));
 }
 
 void VariableLengthItemsetStack::PushPre() {
-  top_ = &(stack_[used_capacity_]);
-  SetItemNum(top_, 0); // clear item num
-  SetSup(top_, 0); // clear sup
-  nu_itemset_++;
+  m_->top_n_ =  m_->used_capacity_;
+  SetItemNum(Top(), 0); // clear item num
+  SetSup(Top(), 0); // clear sup
+  m_->nu_itemset_++;
 }
 
 void VariableLengthItemsetStack::PushPost() {
   int * index = Top();
-  used_capacity_ += ITM + GetItemNum(index);
+  m_->used_capacity_ += ITM + GetItemNum(index);
   SortOneSet(index);
   // IncSupHistogram(index);
 }
 
 void VariableLengthItemsetStack::PushPostNoSort() {
   int * index = Top();
-  used_capacity_ += ITM + GetItemNum(index);
+  m_->used_capacity_ += ITM + GetItemNum(index);
   // IncSupHistogram(index);
 }
 
@@ -97,7 +115,7 @@ void VariableLengthItemsetStack::Pop() {
 }
 
 bool VariableLengthItemsetStack::SetItemNum(int * index, int num) {
-  if (used_capacity_ + NUM >= total_capacity_) return false;
+  if (m_->used_capacity_ + NUM >= m_->total_capacity_) return false;
   index[NUM] = (-1) * (num + 1);
   return false;
 }
@@ -107,7 +125,7 @@ int VariableLengthItemsetStack::GetItemNum(const int * index) {
 }
 
 bool VariableLengthItemsetStack::SetSup(int * index, int sup) {
-  if (used_capacity_ + SUP >= total_capacity_) return false;
+  if (m_->used_capacity_ + SUP >= m_->total_capacity_) return false;
   index[SUP] = sup;
   return true;
 }
@@ -117,7 +135,7 @@ int VariableLengthItemsetStack::GetSup(const int * index) {
 }
 
 bool VariableLengthItemsetStack::SetOneItem(int * index, int item_num, int item) {
-  if (used_capacity_ + item_num + ITM >= total_capacity_) return false;
+  if (m_->used_capacity_ + item_num + ITM >= m_->total_capacity_) return false;
   index[ITM + item_num] = item;
   return true;
 }
@@ -134,7 +152,7 @@ bool VariableLengthItemsetStack::PushOneItem(int item) {
 bool VariableLengthItemsetStack::IncItemNum(int * index) {
   int num = GetItemNum(index);
   num++;
-  if (used_capacity_ + num + ITM > total_capacity_) return false;
+  if (m_->used_capacity_ + num + ITM > m_->total_capacity_) return false;
   SetItemNum(index, num);
   return true;
 }
@@ -169,7 +187,7 @@ void VariableLengthItemsetStack::CopyItem(const int * src, int * dst) {
 }
 
 int * VariableLengthItemsetStack::NextItemset(int * index) const {
-  if (index == top_) return NULL;
+  if (index == Top()) return NULL;
   int num = GetItemNum(index);
   return index + num + ITM;
 }
@@ -186,23 +204,30 @@ bool VariableLengthItemsetStack::Exist(const int * index, int item) const {
 }
 
 int * VariableLengthItemsetStack::Top() const {
-  return top_;
+  return &(m_->stack_[m_->top_n_]);
 }
 
 int * VariableLengthItemsetStack::FirstItemset() const {
-  if (NuItemset() == 0) return NULL;
-  return &(stack_[SENTINEL+1]);
+  if ( Empty() ) return NULL;
+  return &(m_->stack_[SENTINEL+1]);
+}
+
+int * VariableLengthItemsetStack::Bottom() const {
+  return &(m_->stack_[SENTINEL+1]);
 }
 
 void VariableLengthItemsetStack::RemoveOneItemset() {
   // todo: add exception or exit with error message
-  assert(top_ != stack_);
+  assert(Top() != m_->stack_);
   int * index = Top();
   // DecSupHistogram(index);
-  used_capacity_ -= ITM + GetItemNum(index);
-  nu_itemset_--;
-  top_--;
-  while(*top_ >=0) top_--;
+  m_->used_capacity_ -= ITM + GetItemNum(index);
+  m_->nu_itemset_--;
+  m_->top_n_--;
+
+  // requires a sentinel at the bottom of the stack. see constructor
+  while(m_->stack_[m_->top_n_] >=0) m_->top_n_--;
+
   assert( Top()[NUM] < 0);
 }
 
@@ -240,8 +265,8 @@ int VariableLengthItemsetStack::Split(VariableLengthItemsetStack * dst) {
     given_num++;
 
     // DecSupHistogram(give);
-    used_capacity_ -= ITM + GetItemNum(give);
-    nu_itemset_--;
+    m_->used_capacity_ -= ITM + GetItemNum(give);
+    m_->nu_itemset_--;
 
     if (keep == NULL) break;
 
@@ -256,9 +281,8 @@ int VariableLengthItemsetStack::Split(VariableLengthItemsetStack * dst) {
     if (keep == NULL) next = NULL;
     else next = NextItemset(keep);
   }
-  top_ = next_top;
-  // update
-  // top_, used_capacity_, nu_itemset_, sup_hist_
+  m_->top_n_ = next_top - Stack();
+
   return given_num;
 }
 
@@ -267,18 +291,18 @@ bool VariableLengthItemsetStack::Merge(VariableLengthItemsetStack * src) {
   if (this->UsedCapacity() + (src->UsedCapacity()-SENTINEL-1) > this->TotalCapacity())
     return false;
   
-  int * next_top = this->top_;
-  int di=this->used_capacity_;
+  int * next_top = this->Top();
+  int di=this->m_->used_capacity_;
   // note: si starts from (SENTINEL+1) to skip timestamp and sentinel
-  for (int si=SENTINEL+1;si<src->used_capacity_;si++) {
-    this->stack_[di] = src->stack_[si];
-    if (this->stack_[di] < 0) next_top = &(this->stack_[di]);
+  for (int si=SENTINEL+1;si<src->m_->used_capacity_;si++) {
+    this->m_->stack_[di] = src->m_->stack_[si];
+    if (this->m_->stack_[di] < 0) next_top = &(this->m_->stack_[di]);
     di++;
   }
 
-  this->top_ = next_top;
-  this->used_capacity_ += src->UsedCapacity() - SENTINEL-1;
-  this->nu_itemset_ += src->nu_itemset_;
+  this->m_->top_n_ = next_top - Stack();
+  this->m_->used_capacity_ += src->UsedCapacity() - SENTINEL-1;
+  this->m_->nu_itemset_ += src->m_->nu_itemset_;
 
   // for (int i=0;i<sup_max_;i++)
   //   this->sup_hist_[i] += src->sup_hist_[i];
@@ -293,24 +317,24 @@ bool VariableLengthItemsetStack::MergeStack(int * src_st, int size) {
   if ( (this->UsedCapacity() + size) > this->TotalCapacity() )
     return false;
   
-  int * next_top = this->top_;
-  int di=this->used_capacity_;
+  int * next_top = this->Top();
+  int di=this->m_->used_capacity_;
 
   for (int si=0;si<size;si++) {
-    this->stack_[di] = src_st[si];
+    this->m_->stack_[di] = src_st[si];
 
     // update nu_itemset_ and sup_hist_
     if (src_st[si] < 0) {
-      next_top = &(this->stack_[di]);
+      next_top = &(this->m_->stack_[di]);
       // IncSupHistogram(&(src_st[si]));
-      nu_itemset_++;
+      m_->nu_itemset_++;
     }
 
     di++;
   }
 
-  this->top_ = next_top;
-  this->used_capacity_ += size;
+  this->m_->top_n_ = next_top - Stack();
+  this->m_->used_capacity_ += size;
 
   return true;
 
@@ -318,10 +342,11 @@ bool VariableLengthItemsetStack::MergeStack(int * src_st, int size) {
 }
 
 void VariableLengthItemsetStack::Clear() {
-  nu_itemset_ = 0;
-  used_capacity_ = SENTINEL+1; // including sentinel
-  top_ = &(stack_[SENTINEL]); // is this correct?
+  m_->nu_itemset_ = 0;
+  m_->used_capacity_ = SENTINEL+1; // including sentinel
+  m_->top_n_ = SENTINEL; // is this correct?
 
+  // not needed for current mp-lamp algorithm
   // for (int i=0;i<sup_max_;i++)
   //   sup_hist_[i] = 0;
 }

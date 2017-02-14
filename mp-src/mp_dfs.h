@@ -149,6 +149,8 @@ class MP_LAMP {
   // other
   void InitDatabaseSub(bool pos);
 
+  void InitDatabaseCommon();
+
   void Search();
   void MainLoop();
 
@@ -698,44 +700,39 @@ class MP_LAMP {
   int itemset_buf_[VariableLengthItemsetStack::kMaxItemsPerSet];
   uint64 * sup_buf_, * child_sup_buf_;
 
-  VariableLengthItemsetStack * freq_stack_; // record freq itemsets
-  std::multimap< double, int * > freq_map_; // record (pval, *itemsets)
-
-  VariableLengthItemsetStack * significant_stack_;
-
   /* sorting itemset
      1, ascending order of pval
      2, descending order of item numbers
      3, dictionary order of items
    */
-
   class SignificantSetResult {
    public:
-    SignificantSetResult(double p, int * s, int nu_sup, int nu_pos,
-                         VariableLengthItemsetStack * ss)
+    SignificantSetResult(double p, int * s, int nu_sup, int nu_pos)
         : pval_(p),
           set_(s),
           sup_num_(nu_sup),
-          pos_sup_num_(nu_pos),
-          ss_(ss)
+          pos_sup_num_(nu_pos)
     {}
 
     double pval_;
     int * set_;
     int sup_num_;
     int pos_sup_num_;
-
-    const VariableLengthItemsetStack * ss_;
   };
 
+  // hoge;
+  // modify lamp.cc also
+
   struct sigset_compare {
+    sigset_compare(VariableLengthItemsetStack & ss) : ss_(ss) {}
+
     bool operator()(const SignificantSetResult & lhs,
                     const SignificantSetResult & rhs) {
       if (lhs.pval_ < rhs.pval_) return true;
       else if (lhs.pval_ > rhs.pval_) return false;
       else {
-        int l_item_num = lhs.ss_->GetItemNum(lhs.set_);
-        int r_item_num = rhs.ss_->GetItemNum(rhs.set_);
+        int l_item_num = ss_.GetItemNum(lhs.set_);
+        int r_item_num = ss_.GetItemNum(rhs.set_);
 
         if (l_item_num > r_item_num) return true;
         else if (l_item_num < r_item_num) return false;
@@ -743,24 +740,92 @@ class MP_LAMP {
           // sort based on dictionary order of item
           int n = l_item_num;
           for (int i=0;i<n;i++) {
-            int l_item = lhs.ss_->GetNthItem(lhs.set_, i);
-            int r_item = rhs.ss_->GetNthItem(rhs.set_, i);
+            int l_item = ss_.GetNthItem(lhs.set_, i);
+            int r_item = ss_.GetNthItem(rhs.set_, i);
             if (l_item < r_item) return true;
             else if (l_item > r_item) return false;
           }
-          throw std::runtime_error("identical duplicate itemsets found");
+          throw std::runtime_error("identical duplicate itemsets found at operator()");
           return false;
         }
       }
       return false;
     }
+
+    bool compare(const SignificantSetResult & lhs,
+                 double rhs_pval, int * rhs_item) {
+      if (lhs.pval_ < rhs_pval) return true;
+      else if (lhs.pval_ > rhs_pval) return false;
+      else {
+        int l_item_num = ss_.GetItemNum(lhs.set_);
+        int r_item_num = ss_.GetItemNum(rhs_item);
+
+        if (l_item_num > r_item_num) return true;
+        else if (l_item_num < r_item_num) return false;
+        else {
+          // sort based on dictionary order of item
+          int n = l_item_num;
+          for (int i=0;i<n;i++) {
+            int l_item = ss_.GetNthItem(lhs.set_, i);
+            int r_item = ss_.GetNthItem(rhs_item, i);
+            if (l_item < r_item) return true;
+            else if (l_item > r_item) return false;
+          }
+          throw std::runtime_error("identical duplicate itemsets found at compare");
+          return false;
+        }
+      }
+      return false;
+    }
+
+    const VariableLengthItemsetStack & ss_;
   };
 
-  std::set<SignificantSetResult, sigset_compare> significant_set_;
+  /** record frequent enough itemset during 2nd phase (candidates for significant itemsets)
+   *  (if third phase is enabled) */
+  VariableLengthItemsetStack * freq_stack_; // record freq itemsets
+  // record significant set per process. gathered in the final phase
+  // checkme: not neede because we can use significant_set_ for both purpose?
+  // std::set<SignificantSetResult, sigset_compare> significant_set_per_proc_;
+  // std::multimap< double, int * > freq_map_; // record (pval, *itemsets)
+  /** record final significant itemsets in 3rd phase */
+  VariableLengthItemsetStack * final_significant_stack_;
+
+  sigset_compare * freq_comp_;
+  sigset_compare * final_sigset_comp_;
+
+  /** holds final significant set result. store itemset pointers and sort only the pointers */
+  std::set<SignificantSetResult, sigset_compare> * freq_set_;
+  std::set<SignificantSetResult, sigset_compare> * final_significant_set_;
 
   // add pos_sup_num info in significant map
   // add stable sort
   // std::multimap< double, int * > significant_map_;
+
+  /** pushing item, assuming items in itemsets are sorted */
+  int * PushItemsetNoSort(VariableLengthItemsetStack * ss, int * itemset) {
+    ss->PushPre();
+    int * item = ss->Top();
+    ss->CopyItem(itemset, item);
+    ss->PushPostNoSort();
+    return item;
+  }
+
+  /** record itemset if needed, following the SigsetRecordMode */
+  void RecordFrequentItemset(double pval, double sig_level,
+                             int sup_num, int pos_sup_num, int * itemset);
+
+  struct SigsetRecordMode {
+    enum SigsetRecordModeType {
+      NORMAL = 0, // default, record all significant patterns
+      AT_MOST_N, // record at most N significant patterns
+      AT_LEAST_M, // show at least M patterns regardless of significance
+      M_TO_N, // show at least M and at most N
+    };
+  };
+
+  int sigset_record_mode_;
+  long long int infrequent_itemset_num_;
 
   long long int total_expand_num_;
   long long int expand_num_;
@@ -783,6 +848,23 @@ class MP_LAMP {
 
   // insert pointer into significant_map_ (do not sort the stack itself)
   void SortSignificantSets();
+
+  /** calculate support from itemset */
+  void CalculatePval(const VariableLengthItemsetStack * ss, const int * itemset,
+                     int * sup_num, int * pos_sup_num, double * pval) {
+    bsh_->Set(sup_buf_);
+    {
+      int n = ss->GetItemNum(itemset);
+      for (int i=0;i<n;i++) {
+        int item = ss->GetNthItem(itemset, i);
+        bsh_->And(d_->NthData(item), sup_buf_);
+      }
+    }
+
+    *sup_num = bsh_->Count(sup_buf_);
+    *pos_sup_num = bsh_->AndCount(d_->PosNeg(), sup_buf_);
+    *pval = d_->PVal(*sup_num, *pos_sup_num);
+  }
 
   //--------
   // for printing results

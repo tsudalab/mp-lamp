@@ -82,6 +82,7 @@ class Lamp {
   void FirstPhaseLoop();
   void LCMLoop();
 
+  // hoge; // implement display method for each mode
   std::ostream & PrintResults(std::ostream & out) const;
   // std::ostream & PrintSignificantMap(std::ostream & out) const;
   std::ostream & PrintSignificantSet(std::ostream & out) const;
@@ -137,31 +138,29 @@ class Lamp {
 
   class SignificantSetResult {
    public:
-    SignificantSetResult(double p, int * s, int nu_sup, int nu_pos,
-                         VariableLengthItemsetStack * ss)
+    SignificantSetResult(double p, int * s, int nu_sup, int nu_pos)
         : pval_(p),
           set_(s),
           sup_num_(nu_sup),
-          pos_sup_num_(nu_pos),
-          ss_(ss)
+          pos_sup_num_(nu_pos)
     {}
 
     double pval_;
     int * set_;
     int sup_num_;
     int pos_sup_num_;
-
-    const VariableLengthItemsetStack * ss_;
   };
 
   struct sigset_compare {
+    sigset_compare(VariableLengthItemsetStack & ss) : ss_(ss) {}
+
     bool operator()(const SignificantSetResult & lhs,
                     const SignificantSetResult & rhs) {
       if (lhs.pval_ < rhs.pval_) return true;
       else if (lhs.pval_ > rhs.pval_) return false;
       else {
-        int l_item_num = lhs.ss_->GetItemNum(lhs.set_);
-        int r_item_num = rhs.ss_->GetItemNum(rhs.set_);
+        int l_item_num = ss_.GetItemNum(lhs.set_);
+        int r_item_num = ss_.GetItemNum(rhs.set_);
 
         if (l_item_num > r_item_num) return true;
         else if (l_item_num < r_item_num) return false;
@@ -169,8 +168,8 @@ class Lamp {
           // sort based on dictionary order of item
           int n = l_item_num;
           for (int i=0;i<n;i++) {
-            int l_item = lhs.ss_->GetNthItem(lhs.set_, i);
-            int r_item = rhs.ss_->GetNthItem(rhs.set_, i);
+            int l_item = ss_.GetNthItem(lhs.set_, i);
+            int r_item = ss_.GetNthItem(rhs.set_, i);
             if (l_item < r_item) return true;
             else if (l_item > r_item) return false;
           }
@@ -180,9 +179,48 @@ class Lamp {
       }
       return false;
     }
+
+    bool compare(const SignificantSetResult & lhs,
+                 double rhs_pval, int * rhs_item) {
+      if (lhs.pval_ < rhs_pval) return true;
+      else if (lhs.pval_ > rhs_pval) return false;
+      else {
+        int l_item_num = ss_.GetItemNum(lhs.set_);
+        int r_item_num = ss_.GetItemNum(rhs_item);
+
+        if (l_item_num > r_item_num) return true;
+        else if (l_item_num < r_item_num) return false;
+        else {
+          // sort based on dictionary order of item
+          int n = l_item_num;
+          for (int i=0;i<n;i++) {
+            int l_item = ss_.GetNthItem(lhs.set_, i);
+            int r_item = ss_.GetNthItem(rhs_item, i);
+            if (l_item < r_item) return true;
+            else if (l_item > r_item) return false;
+          }
+          throw std::runtime_error("identical duplicate itemsets found");
+          return false;
+        }
+      }
+      return false;
+    }
+
+    const VariableLengthItemsetStack & ss_;
   };
 
-  std::set<SignificantSetResult, sigset_compare> significant_set_;
+  /** pushing item, assuming items in itemsets are sorted */
+  int * PushItemsetNoSort(VariableLengthItemsetStack * ss, int * itemset) {
+    ss->PushPre();
+    int * item = ss->Top();
+    ss->CopyItem(itemset, item);
+    ss->PushPostNoSort();
+    return item;
+  }
+
+  /** record itemset if needed, following the SigsetRecordMode */
+  void RecordSignificantItemset(double pval, double sig_level,
+                                int sup_num, int pos_sup_num, int * itemset);
 
   // std::multimap< double, int * > significant_map_;
   // static bool less(const std::pair<double, int * > & lhs,
@@ -191,6 +229,23 @@ class Lamp {
   //   return false;
   // }
   VariableLengthItemsetStack * significant_stack_;
+
+  sigset_compare * sigset_comp_;
+
+  /** holds significant set result. store itemset pointers and sort only the pointers */
+  std::set<SignificantSetResult, sigset_compare> * significant_set_;
+
+  struct SigsetRecordMode {
+    enum SigsetRecordModeType {
+      NORMAL = 0, // default, record all significant patterns
+      AT_MOST_N, // record at most N significant patterns
+      AT_LEAST_M, // show at least M patterns regardless of significance
+      M_TO_N, // show at least M and at most N
+    };
+  };
+
+  int sigset_record_mode_;
+  int insignificant_itemset_num_;
 
   // expand num of current iteration (== number of Iter calls)
   // without positive check, this should be (the number of closed set) + 1

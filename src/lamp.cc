@@ -66,6 +66,13 @@ DECLARE_bool(third_phase);  // true, "do third phase"
 DEFINE_int32(stack_size, 1024*1024*64, "node stack size (integer)");
 DEFINE_int32(freq_max, 1024*1024*64, "stack size for holding freq sets");
 
+DEFINE_int32(min_sig_size, 0, "show at least top n combinations");
+DEFINE_int32(max_sig_size, 0, "maximum size of significant item set. If 0, show all");
+// fixme: add sanity check (or stop using this and implement re-run of 2nd phase)
+DEFINE_int32(max_freq_size, 0,
+             "maximum size of frequent item set. 0 for all.\n"
+             "Used for 2nd phase. Should be significantly greater than max_sig_size");
+
 namespace lamp_search {
 
 const int Lamp::k_int_max = std::numeric_limits<int>::max();
@@ -90,6 +97,10 @@ Lamp::Lamp(const LampGraph<uint64> & g) :
     cs_thr_ (NULL),
     cs_accum_array_ (NULL),
     significant_stack_ (NULL), 
+    sigset_comp_ (NULL),
+    significant_set_ (NULL),
+    sigset_record_mode_ (0),
+    insignificant_itemset_num_ (0),
     expand_num_ (0ll),
     total_expand_num_ (0ll),
     closed_set_num_ (0ll),
@@ -100,12 +111,38 @@ Lamp::Lamp(const LampGraph<uint64> & g) :
 {
   log_.init_time_ = timer_->Elapsed();
   InitSearch();
+
+  if (FLAGS_min_sig_size < 0)
+    throw std::runtime_error(std::string("negative value not allowed for min_sig_size"));
+
+  if (FLAGS_max_sig_size < 0)
+    throw std::runtime_error(std::string("negative value not allowed for max_sig_size"));
+
+  if (FLAGS_max_sig_size > 0 && FLAGS_min_sig_size > FLAGS_max_sig_size)
+    throw std::runtime_error(std::string("option conflict min_sig_size and max_sig_size"));
+
+  if (FLAGS_min_sig_size == 0) {
+    if (FLAGS_max_sig_size == 0) { // default
+      sigset_record_mode_ = SigsetRecordMode::NORMAL;
+    } else { // show at most n
+      sigset_record_mode_ = SigsetRecordMode::AT_MOST_N;
+    }
+  } else {
+    if (FLAGS_max_sig_size == 0) { // show at least n
+      sigset_record_mode_ = SigsetRecordMode::AT_LEAST_M;
+    } else { // show at least n but at most n
+      sigset_record_mode_ = SigsetRecordMode::M_TO_N;
+    }
+  }
+
   log_.init_time_ = timer_->Elapsed() - log_.init_time_;
 }
 
 Lamp::~Lamp() {
   if (node_stack_) delete node_stack_;
   if (significant_stack_) delete significant_stack_;
+  if (significant_set_) delete significant_set_;
+  if (sigset_comp_) delete sigset_comp_;
   if (pmin_thr_ != NULL) delete [] pmin_thr_;
   if (cs_thr_ != NULL) delete [] cs_thr_;
   if (cs_accum_array_ != NULL) delete [] cs_accum_array_;
@@ -114,16 +151,21 @@ Lamp::~Lamp() {
 }
 
 void Lamp::InitSearch() {
-  significant_set_.clear();
-
   lambda_max_ = d_.MaxX(); // the upper bound of sup
 
   if (node_stack_) delete node_stack_;
   node_stack_ = new VariableLengthItemsetStack(FLAGS_stack_size);
-  // node_stack_ = new VariableLengthItemsetStack(FLAGS_stack_size, lambda_max_);
+
   if (significant_stack_) delete significant_stack_;
   significant_stack_ = new VariableLengthItemsetStack(FLAGS_freq_max);
-  // significant_stack_ = new VariableLengthItemsetStack(FLAGS_freq_max, lambda_max_);
+
+  if (sigset_comp_) delete sigset_comp_;
+  sigset_comp_ = new sigset_compare(*significant_stack_);
+
+  if (significant_set_)
+    significant_set_->clear();
+  else
+    significant_set_ = new std::set<SignificantSetResult, sigset_compare>(*sigset_comp_);
 
   if (pmin_thr_) delete [] pmin_thr_;
   if (cs_thr_) delete [] cs_thr_;
@@ -398,7 +440,7 @@ void Lamp::LCMIter(int * itemset, int sup_threshold, double sig_level) {
 
   for ( int new_item = core_i + 1 ; new_item < d_.NuItems() ; new_item++ ) {
     // skip existing item
-    // todo: improve speed here
+    // todo: improve speed of Exist (but only meaningful for large itemset)
     if (node_stack_->Exist(itemset, new_item)) continue;
 
     bsh_.Copy(sup, child_sup);
@@ -429,22 +471,8 @@ void Lamp::LCMIter(int * itemset, int sup_threshold, double sig_level) {
         int pos_sup_num = bsh_.AndCount(d_.PosNeg(), child_sup);
         double pval = d_.PVal(sup_num, pos_sup_num);
         assert( pval >= 0.0 );
-        if ( pval <= sig_level ) {// permits == case?
-          significant_stack_->PushPre();
-          int * item = significant_stack_->Top();
-          significant_stack_->CopyItem(ppc_ext_buf, item);
-          significant_stack_->PushPostNoSort();
 
-          significant_set_.insert(
-              SignificantSetResult(pval, item, sup_num, pos_sup_num,
-                                   significant_stack_)
-                                  );
-          // // dbg
-          // std::cout << "insert: "
-          //           << "pval=" << pval
-          //           << "\titems: ";
-          // significant_stack_->Print(std::cout, item);
-        }
+        RecordSignificantItemset(pval, sig_level, sup_num, pos_sup_num, ppc_ext_buf);
       }
 
       assert(sup_num >= sup_threshold);
@@ -469,13 +497,194 @@ void Lamp::LCMIter(int * itemset, int sup_threshold, double sig_level) {
 
 void Lamp::DiscardSignificantList(double sig_level) {
   std::set<SignificantSetResult, sigset_compare>::reverse_iterator rit;
-  for(rit = significant_set_.rbegin(); rit != significant_set_.rend();) {
-    // permits == case
-    if ((*rit).pval_ > sig_level) {
-      significant_set_.erase(--rit.base());
-    }
-    else break;
+  switch(sigset_record_mode_) {
+    case SigsetRecordMode::NORMAL:
+      {
+        for(rit = significant_set_->rbegin(); rit != significant_set_->rend();) {
+          // permits == case
+          if (rit->pval_ > sig_level) {
+            significant_set_->erase(--rit.base());
+          }
+          else break;
+        }
+      }
+      break;
+    case SigsetRecordMode::AT_MOST_N:
+      {
+        assert( significant_set_->size() <= (std::size_t)FLAGS_max_sig_size); // does this hold?
+
+        for(rit = significant_set_->rbegin(); rit != significant_set_->rend();) {
+          // permits == case
+          if (rit->pval_ > sig_level || significant_set_->size() > (std::size_t)FLAGS_max_sig_size) {
+            significant_set_->erase(--rit.base());
+          }
+          else break;
+        }
+      }
+      break;
+    case SigsetRecordMode::AT_LEAST_M:
+      {
+        for(rit = significant_set_->rbegin(); rit != significant_set_->rend();) {
+          // permits == case
+          if (rit->pval_ > sig_level && significant_set_->size() > (std::size_t)FLAGS_min_sig_size) {
+            significant_set_->erase(--rit.base());
+          }
+          else break;
+        }
+      }
+      break;
+    case SigsetRecordMode::M_TO_N:
+      {
+        for(rit = significant_set_->rbegin(); rit != significant_set_->rend();) {
+          if ( (rit->pval_ > sig_level && significant_set_->size() > (std::size_t)FLAGS_min_sig_size) ||
+               significant_set_->size() > (std::size_t)FLAGS_max_sig_size ) {
+            significant_set_->erase(--rit.base());
+          }
+          else break;
+        }
+      }
+      break;
+    default:
+      throw std::runtime_error(std::string("unknown mode in RecordFrequentItemset"));
+      break;
   }
+
+}
+
+// fixme:
+// bug in AT_MOST_N and M_TO_N
+// because 2nd phase sig level is relaxed
+void Lamp::RecordSignificantItemset(double pval, double sig_level,
+                                    int sup_num, int pos_sup_num,
+                                    int * itemset) {
+  // fixme: change some command line options from int32 to int64
+
+  switch(sigset_record_mode_) {
+    case SigsetRecordMode::NORMAL:
+      if (pval <= sig_level) { // == means significant
+        int * item = PushItemsetNoSort(significant_stack_, itemset);
+        significant_set_->insert(
+            SignificantSetResult(pval, item, sup_num, pos_sup_num)
+                                 );
+      }
+      break;
+
+    case SigsetRecordMode::AT_MOST_N:
+      // todo: add pruning based on top_n
+
+      if (significant_set_->size() < (std::size_t)FLAGS_max_sig_size) {
+        if (pval <= sig_level) { // == means significant
+          int * item = PushItemsetNoSort(significant_stack_, itemset);
+          significant_set_->insert(
+              SignificantSetResult(pval, item, sup_num, pos_sup_num)
+                                   );
+        }
+      } else {
+        std::set<SignificantSetResult, sigset_compare>::iterator it = significant_set_->end();
+        --it;
+
+        // erase, prepare for insert and return true
+        if (!sigset_comp_->compare(*it, pval, itemset)) {
+          significant_set_->erase(it);
+          int * item = PushItemsetNoSort(significant_stack_, itemset);
+          significant_set_->insert(
+              SignificantSetResult(pval, item, sup_num, pos_sup_num)
+                                   );
+        }
+      }
+      break;
+
+    case SigsetRecordMode::AT_LEAST_M:
+      if (significant_set_->size() < (std::size_t)FLAGS_min_sig_size) {
+        int * item = PushItemsetNoSort(significant_stack_, itemset);
+        significant_set_->insert(
+            SignificantSetResult(pval, item, sup_num, pos_sup_num)
+                                 );
+
+        if (!(pval <= sig_level)) insignificant_itemset_num_++;
+
+      } else {
+        std::set<SignificantSetResult, sigset_compare>::iterator it = significant_set_->end();
+        --it;
+
+        // insert if new one is significant
+        if (pval <= sig_level) { // == means significant
+          // discard if worst one is not significant
+          if (insignificant_itemset_num_ > 0) {
+            std::set<SignificantSetResult, sigset_compare>::iterator it = significant_set_->end();
+            --it;
+            significant_set_->erase(it);
+            assert(it->pval_ > sig_level);
+            insignificant_itemset_num_--;
+          }
+
+          int * item = PushItemsetNoSort(significant_stack_, itemset);
+          significant_set_->insert(
+              SignificantSetResult(pval, item, sup_num, pos_sup_num)
+                                   );
+        }
+
+      }
+      break;
+
+    case SigsetRecordMode::M_TO_N:
+      if (significant_set_->size() < (std::size_t)FLAGS_min_sig_size) {
+        int * item = PushItemsetNoSort(significant_stack_, itemset);
+        significant_set_->insert(
+            SignificantSetResult(pval, item, sup_num, pos_sup_num)
+                                 );
+
+        if (!(pval <= sig_level)) insignificant_itemset_num_++;
+
+      } else if (significant_set_->size() < (std::size_t)FLAGS_max_sig_size) {
+        std::set<SignificantSetResult, sigset_compare>::iterator it = significant_set_->end();
+        --it;
+
+        // insert if new one is significant
+        if (pval <= sig_level) { // == means significant
+          // discard if worst one is not significant
+          if (insignificant_itemset_num_ > 0) {
+            std::set<SignificantSetResult, sigset_compare>::iterator it = significant_set_->end();
+            --it;
+            significant_set_->erase(it);
+            assert(it->pval_ > sig_level);
+            insignificant_itemset_num_--;
+          }
+
+          int * item = PushItemsetNoSort(significant_stack_, itemset);
+          significant_set_->insert(
+              SignificantSetResult(pval, item, sup_num, pos_sup_num)
+                                   );
+        }
+
+      } else { // count >= FLAGS_max_sig_size
+        std::set<SignificantSetResult, sigset_compare>::iterator it = significant_set_->end();
+        --it;
+
+        // erase, prepare for insert and return true
+        if (!sigset_comp_->compare(*it, pval, itemset)) {
+          significant_set_->erase(it);
+          int * item = PushItemsetNoSort(significant_stack_, itemset);
+          significant_set_->insert(
+              SignificantSetResult(pval, item, sup_num, pos_sup_num)
+                                   );
+        }
+
+      }
+      // todo: can combine with pruning based on top n?
+
+      break;
+
+    default:
+      throw std::runtime_error(std::string("unknown mode in RecordSignificantItemset"));
+      break;
+  }
+
+  // // dbg
+  // std::cout << "insert: "
+  //           << "pval=" << pval
+  //           << "\titems: ";
+  // significant_stack_->Print(std::cout, item);
 }
 
 //==============================================================================
@@ -699,6 +908,9 @@ void Lamp::LCMLoop() {
       int sup_num = bsh_.AndCountUpdate(d_.NthData(new_item), child_sup_buf_);
       
       if (sup_num < lambda_thr_) continue;
+      // zoe 2017/01/25
+      // to add pruning, add something here
+      // like, if (depth_of_child >= threshold) continue;
 
       node_stack_->PushPre();
       ppc_ext_buf = node_stack_->Top();
@@ -721,22 +933,8 @@ void Lamp::LCMLoop() {
           int pos_sup_num = bsh_.AndCount(d_.PosNeg(), child_sup_buf_);
           double pval = d_.PVal(sup_num, pos_sup_num);
           assert( pval >= 0.0 );
-          if ( pval <= sig_level_ ) {// permits == case?
-            significant_stack_->PushPre();
-            int * item = significant_stack_->Top();
-            significant_stack_->CopyItem(ppc_ext_buf, item);
-            significant_stack_->PushPostNoSort();
 
-            significant_set_.insert(
-                SignificantSetResult(pval, item, sup_num, pos_sup_num,
-                                     significant_stack_)
-                                    );
-            // // dbg
-            // std::cout << "insert: "
-            //           << "pval=" << pval
-            //           << "\titems: ";
-            // significant_stack_->Print(std::cout, item);
-          }
+          RecordSignificantItemset(pval, sig_level_, sup_num, pos_sup_num, ppc_ext_buf);
         }
 
         assert(sup_num >= lambda_thr_);
@@ -775,11 +973,11 @@ std::ostream & Lamp::PrintResults(std::ostream & out) const {
 std::ostream & Lamp::PrintSignificantSet(std::ostream & out) const {
   std::stringstream s;
 
-  s << "# number of significant patterns=" << significant_set_.size() << std::endl;
+  s << "# number of significant patterns=" << significant_set_->size() << std::endl;
   s << "# pval (raw)    pval (corr)         freq     pos        # items items\n";
   for(std::set<SignificantSetResult, sigset_compare>::const_iterator it
-          = significant_set_.begin();
-      it != significant_set_.end(); ++it) {
+          = significant_set_->begin();
+      it != significant_set_->end(); ++it) {
 
     s << ""   << std::setw(16) << std::left << (*it).pval_ << std::right
       << ""  << std::setw(16) << std::left << (*it).pval_ * final_closed_set_num_ << std::right
