@@ -61,8 +61,8 @@ long long int Timer::GetTimeInternal() {
   long long int nsec;
 #ifdef HAVE_CLOCK_GETTIME
   struct timespec ct;
-  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ct);
-  // clock_gettime(CLOCK_MONOTONIC, &ct);
+  // clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ct);
+  clock_gettime(CLOCK_MONOTONIC, &ct);
   nsec = ct.tv_sec * 1000000000 + (ct.tv_nsec);
 #else
   struct timeval t;
@@ -73,9 +73,8 @@ long long int Timer::GetTimeInternal() {
   return nsec;
 }
 
-
-
 } // namespace lamp_search
+
 /* Local Variables:  */
 /* compile-command: "scons -u" */
 /* End:              */

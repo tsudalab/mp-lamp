@@ -751,8 +751,6 @@ double Database<Block>::PValCalLog(int sup, int pos_sup) const {
     pval_log_cal_buf[ti] = -(std::numeric_limits<double>::infinity());
 
   double p1_log = PMinLog(sup);
-  if (exp(p1_log) > 1.0) return 1.001; // maybe not needed
-  // if (exp(p1_log) > siglev) return 1.001; // maybe not needed
 
   if (sup > PosTotal()){
     for (int j = 0.0; j < sup - PosTotal(); ++j){
@@ -834,7 +832,7 @@ void Database<Block>::PrepareItemVals() {
       new_item.pos_sup = pos_sup;
       new_item.pval = PVal(sup, pos_sup);
     }
-    else new_item.pval = 1.001;
+    else new_item.pval = -1.0; // maybe wrong
 
     item_info_.push_back(new_item);
   }

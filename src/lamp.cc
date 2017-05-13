@@ -604,9 +604,6 @@ void Lamp::RecordSignificantItemset(double pval, double sig_level,
         if (!(pval <= sig_level)) insignificant_itemset_num_++;
 
       } else {
-        std::set<SignificantSetResult, sigset_compare>::iterator it = significant_set_->end();
-        --it;
-
         // insert if new one is significant
         if (pval <= sig_level) { // == means significant
           // discard if worst one is not significant
@@ -637,9 +634,6 @@ void Lamp::RecordSignificantItemset(double pval, double sig_level,
         if (!(pval <= sig_level)) insignificant_itemset_num_++;
 
       } else if (significant_set_->size() < (std::size_t)FLAGS_max_sig_size) {
-        std::set<SignificantSetResult, sigset_compare>::iterator it = significant_set_->end();
-        --it;
-
         // insert if new one is significant
         if (pval <= sig_level) { // == means significant
           // discard if worst one is not significant
@@ -966,6 +960,12 @@ std::ostream & Lamp::PrintResults(std::ostream & out) const {
 
   if (FLAGS_third_phase) PrintSignificantSet(s);
 
+  if (sigset_record_mode_ == SigsetRecordMode::AT_LEAST_M ||
+      sigset_record_mode_ == SigsetRecordMode::M_TO_N) {
+    s << "# non-significant itemsets are marked with a \"*\" at the end\n";
+    s << "# please note that itemsets  more significant than those maybe overlooked\n";
+  }
+
   out << s.str() << std::flush;
   return out;
 }
@@ -992,6 +992,9 @@ std::ostream & Lamp::PrintSignificantSet(std::ostream & out) const {
 
     const int * item = (*it).set_;
     significant_stack_->Print(s, d_.ItemNames(), item);
+
+    if ((*it).pval_ > final_sig_level_) s << " *";
+    s << std::endl;
   }
   
   out << s.str() << std::flush;

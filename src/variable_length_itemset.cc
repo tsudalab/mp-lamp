@@ -357,6 +357,7 @@ std::ostream& VariableLengthItemsetStack::PrintAll(std::ostream & out) const {
   int * p = FirstItemset();
   while (p != NULL) {
     Print(s, p);
+    s << std::endl;
     p = NextItemset(p);
   }
 
@@ -375,7 +376,6 @@ std::ostream& VariableLengthItemsetStack::Print(std::ostream & out,
   s << "\titems:";
   for (int i=0;i<n;i++)
     s << " " << index[ITM+i];
-  s << std::endl;
   
   out << s.str() << std::flush;
   return out;
@@ -395,11 +395,9 @@ std::ostream& VariableLengthItemsetStack::Print(std::ostream & out,
   if (item_names != NULL) {
     for (int i=0;i<n;i++)
       s << "\t" << (*item_names)[ index[ITM+i] ];
-    s << std::endl;
   } else {
     for (int i=0;i<n;i++)
       s << "\t" << index[ITM+i];
-    s << std::endl;
   }
   
   out << s.str() << std::flush;

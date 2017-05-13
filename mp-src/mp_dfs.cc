@@ -71,10 +71,6 @@ DECLARE_int32(freq_max); // 1024*1024*64, "stack size for holding freq sets", la
 
 DECLARE_int32(min_sig_size); // 0, "show at least top n combinations"
 DECLARE_int32(max_sig_size); // 0, "maximum size of significant item set. If 0, show all"
-DECLARE_int32(max_freq_size);
-// 0, "maximum size of frequent item set. 0 for all.\n
-// Used for 2nd phase. Should be significantly greater than max_sig_size
-
 
 DEFINE_int32(sig_max, 1024*1024*64, "stack size for holding significant sets");
 
@@ -1707,6 +1703,10 @@ bool MP_LAMP::ProcessNode(int n) {
         if (phase_ == 1) IncCsAccum(sup_num); // increment closed_set_num_array
         if (phase_ == 2) closed_set_num_++;
 
+        // fixme:
+        // add stack full check here
+        // simple approach is to prepare a bool stack_is_full
+        // add do MPI_Reduce with MPI_Op MPI_Lor
         if (phase_ == 2 && FLAGS_third_phase) {
           int pos_sup_num = bsh_->AndCount(d_->PosNeg(), child_sup_buf_);
           double pval = d_->PVal(sup_num, pos_sup_num);
@@ -2497,6 +2497,7 @@ void MP_LAMP::RecordFrequentItemset(double pval, double sig_level,
                                     int sup_num, int pos_sup_num,
                                     int * itemset) {
   // fixme: change some options from int32 to int64
+  // todo: detect memory full and fall back to re-execution of 2nd phase
 
   switch(sigset_record_mode_) {
     case SigsetRecordMode::NORMAL:
@@ -2514,25 +2515,11 @@ void MP_LAMP::RecordFrequentItemset(double pval, double sig_level,
       {
         // todo: add pruning based on top_n
 
-        if (freq_set_->size() < (std::size_t)FLAGS_max_sig_size) {
-          if (pval <= sig_level) { // == means significant
-            int * item = PushItemsetNoSort(freq_stack_, itemset);
-            freq_set_->insert(
-                SignificantSetResult(pval, item, sup_num, pos_sup_num)
-                              );
-          }
-        } else {
-          std::set<SignificantSetResult, sigset_compare>::iterator it = freq_set_->end();
-          --it;
-
-          // erase, prepare for insert and return true
-          if (!freq_comp_->compare(*it, pval, itemset)) {
-            freq_set_->erase(it);
-            int * item = PushItemsetNoSort(freq_stack_, itemset);
-            freq_set_->insert(
-                SignificantSetResult(pval, item, sup_num, pos_sup_num)
-                              );
-          }
+        if (pval <= sig_level) { // == means significant
+          int * item = PushItemsetNoSort(freq_stack_, itemset);
+          freq_set_->insert(
+              SignificantSetResult(pval, item, sup_num, pos_sup_num)
+                            );
         }
       }
       break;
@@ -2581,7 +2568,7 @@ void MP_LAMP::RecordFrequentItemset(double pval, double sig_level,
 
           if (!(pval <= sig_level)) infrequent_itemset_num_++;
 
-        } else if (freq_set_->size() < (std::size_t)FLAGS_max_sig_size) {
+        } else {
           // insert if new one is significant
           if (pval <= sig_level) { // == means significant
             // discard if worst one is not significant
@@ -2599,21 +2586,7 @@ void MP_LAMP::RecordFrequentItemset(double pval, double sig_level,
                               );
           }
 
-        } else { // count >= FLAGS_max_sig_size
-          std::set<SignificantSetResult, sigset_compare>::iterator it = freq_set_->end();
-          --it;
-
-          if (!freq_comp_->compare(*it, pval, itemset)) {
-            freq_set_->erase(it);
-            int * item = PushItemsetNoSort(freq_stack_, itemset);
-            freq_set_->insert(
-                SignificantSetResult(pval, item, sup_num, pos_sup_num)
-                              );
-          }
-
         }
-        // todo: can combine with pruning based on top n?
-
       }
       break;
 
@@ -3026,6 +2999,11 @@ std::ostream & MP_LAMP::PrintResults(std::ostream & out) const {
   s << std::endl;
 
   if (FLAGS_third_phase) PrintSignificantSet(s);
+  if (sigset_record_mode_ == SigsetRecordMode::AT_LEAST_M ||
+      sigset_record_mode_ == SigsetRecordMode::M_TO_N) {
+    s << "# non-significant itemsets are marked with a \"*\" at the end\n";
+    s << "# please note that itemsets more significant than those maybe overlooked\n";
+  }
 
   out << s.str() << std::flush;
   return out;
@@ -3043,10 +3021,10 @@ std::ostream & MP_LAMP::PrintSignificantSet(std::ostream & out) const {
           = final_significant_set_->begin();
       it != final_significant_set_->end(); ++it) {
 
-    s << ""   << std::setw(16) << std::left << (*it).pval_ << std::right
-      << ""  << std::setw(16) << std::left << (*it).pval_ * final_closed_set_num_ << std::right
+    s << "" << std::setw(16) << std::left << (*it).pval_ << std::right
+      << "" << std::setw(16) << std::left << (*it).pval_ * final_closed_set_num_ << std::right
       << "" << std::setw(8)  << (*it).sup_num_
-      << ""  << std::setw(8)  << (*it).pos_sup_num_
+      << "" << std::setw(8)  << (*it).pos_sup_num_
       << "";
     // s << "pval (raw)="   << std::setw(16) << std::left << (*it).pval_ << std::right
     //   << "pval (corr)="  << std::setw(16) << std::left << (*it).pval_ * final_closed_set_num_ << std::right
@@ -3056,6 +3034,9 @@ std::ostream & MP_LAMP::PrintSignificantSet(std::ostream & out) const {
 
     const int * item = (*it).set_;
     final_significant_stack_->Print(s, d_->ItemNames(), item);
+
+    if ((*it).pval_ > final_sig_level_) s << " *";
+    s << std::endl;
   }
 
   out << s.str() << std::flush;
