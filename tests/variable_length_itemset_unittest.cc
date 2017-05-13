@@ -63,6 +63,7 @@ TEST (VariableLengthItemsetTest, OperationTest) {
   s->PushPost();
 
   s->Print(std::cout, p);
+  std::cout << std::endl;
   EXPECT_EQ(2, s->GetItemNum(p));
   EXPECT_EQ(3, s->GetSup(p));
   EXPECT_EQ(1, s->NuItemset());
@@ -78,6 +79,7 @@ TEST (VariableLengthItemsetTest, OperationTest) {
   s->PushPost();
 
   s->Print(std::cout, p);
+  std::cout << std::endl;
   EXPECT_EQ(3, s->GetItemNum(p));
   EXPECT_EQ(2, s->GetSup(p));
   EXPECT_EQ(2, s->NuItemset());
@@ -88,6 +90,7 @@ TEST (VariableLengthItemsetTest, OperationTest) {
 
   p = s->Top();
   s->Print(std::cout, p);
+  std::cout << std::endl;
   EXPECT_EQ(2, s->GetItemNum(p));
   EXPECT_EQ(3, s->GetSup(p));
   EXPECT_EQ(1, s->NuItemset());
@@ -113,18 +116,22 @@ TEST (VariableLengthItemsetTest, PushTest) {
   std::cout << "0:\t";
   std::cout << "top=" << s->Top() << "\t";
   s->Print(std::cout, p);
+  std::cout << std::endl;
   s->PushOneItem(5);
   std::cout << "1:\t";
   std::cout << "top=" << s->Top() << "\t";
   s->Print(std::cout, p);
+  std::cout << std::endl;
   s->PushOneItem(1);
   std::cout << "2:\t";
   std::cout << "top=" << s->Top() << "\t";
   s->Print(std::cout, p);
+  std::cout << std::endl;
   s->SetSup(p, 3);
   s->PushPost();
 
   s->Print(std::cout, p);
+  std::cout << std::endl;
   EXPECT_EQ(2, s->GetItemNum(p));
   EXPECT_EQ(3, s->GetSup(p));
   EXPECT_EQ(1, s->NuItemset());
@@ -139,6 +146,7 @@ TEST (VariableLengthItemsetTest, PushTest) {
   s->PushPost();
 
   s->Print(std::cout, p);
+  std::cout << std::endl;
   EXPECT_EQ(3, s->GetItemNum(p));
   EXPECT_EQ(2, s->GetSup(p));
   EXPECT_EQ(2, s->NuItemset());
@@ -149,6 +157,7 @@ TEST (VariableLengthItemsetTest, PushTest) {
 
   p = s->Top();
   s->Print(std::cout, p);
+  std::cout << std::endl;
   EXPECT_EQ(2, s->GetItemNum(p));
   EXPECT_EQ(3, s->GetSup(p));
   EXPECT_EQ(1, s->NuItemset());
@@ -209,6 +218,7 @@ TEST (VariableLengthItemsetTest, SplitTestEven) {
 
   p = dst->FirstItemset();
   dst->Print(std::cout, p);
+  std::cout << std::endl;
   EXPECT_EQ(3, dst->GetItemNum(p));
   EXPECT_EQ(2, dst->GetSup(p));
 
@@ -269,11 +279,13 @@ TEST (VariableLengthItemsetTest, SplitTestOdd) {
 
   p = src->FirstItemset();
   src->Print(std::cout, p);
+  std::cout << std::endl;
   EXPECT_EQ(2, src->GetItemNum(p));
   EXPECT_EQ(3, src->GetSup(p));
 
   p = src->NextItemset(p);
   src->Print(std::cout, p);
+  std::cout << std::endl;
   EXPECT_EQ(4, src->GetItemNum(p));
   EXPECT_EQ(1, src->GetSup(p));
 
@@ -287,6 +299,7 @@ TEST (VariableLengthItemsetTest, SplitTestOdd) {
 
   p = dst->FirstItemset();
   dst->Print(std::cout, p);
+  std::cout << std::endl;
   EXPECT_EQ(3, dst->GetItemNum(p));
   EXPECT_EQ(2, dst->GetSup(p));
 
@@ -329,6 +342,7 @@ TEST (VariableLengthItemsetTest, SplitTestOne) {
 
   p = src->FirstItemset();
   src->Print(std::cout, p);
+  std::cout << std::endl;
   EXPECT_EQ(2, src->GetItemNum(p));
   EXPECT_EQ(3, src->GetSup(p));
 
@@ -407,18 +421,21 @@ TEST (VariableLengthItemsetTest, MergeTest) {
   p = src->FirstItemset();
   EXPECT_NE((int *)NULL, p);
   src->Print(std::cout, p);
+  std::cout << std::endl;
   EXPECT_EQ(2, src->GetItemNum(p));
   EXPECT_EQ(3, src->GetSup(p));
 
   p = src->NextItemset(p);
   EXPECT_NE((int *)NULL, p);
   src->Print(std::cout, p);
+  std::cout << std::endl;
   EXPECT_EQ(3, src->GetItemNum(p));
   EXPECT_EQ(2, src->GetSup(p));
 
   p = src->NextItemset(p);
   EXPECT_NE((int *)NULL, p);
   src->Print(std::cout, p);
+  std::cout << std::endl;
   EXPECT_EQ(4, src->GetItemNum(p));
   EXPECT_EQ(1, src->GetSup(p));
 
@@ -498,18 +515,21 @@ TEST (VariableLengthItemsetTest, MergeStackTest) {
   p = src->FirstItemset();
   EXPECT_NE((int *)NULL, p);
   src->Print(std::cout, p);
+  std::cout << std::endl;
   EXPECT_EQ(2, src->GetItemNum(p));
   EXPECT_EQ(3, src->GetSup(p));
 
   p = src->NextItemset(p);
   EXPECT_NE((int *)NULL, p);
   src->Print(std::cout, p);
+  std::cout << std::endl;
   EXPECT_EQ(3, src->GetItemNum(p));
   EXPECT_EQ(2, src->GetSup(p));
 
   p = src->NextItemset(p);
   EXPECT_NE((int *)NULL, p);
   src->Print(std::cout, p);
+  std::cout << std::endl;
   EXPECT_EQ(4, src->GetItemNum(p));
   EXPECT_EQ(1, src->GetSup(p));
 
