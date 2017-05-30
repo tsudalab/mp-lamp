@@ -67,15 +67,15 @@ void DatabaseReader<Block>::ReadFiles(VariableBitsetHelper<Block> ** bsh,
                                       int * nu_trans,
                                       int * nu_items,
                                       std::istream & pos_file,
-                                      Block ** positive,
+                                      Block ** positive, double ** pos_val,
                                       int * nu_pos_total,
                                       std::vector< std::string > * item_names,
                                       std::vector< std::string > * transaction_names,
-                                      int * max_item_in_transaction)
-{
+                                      int * max_item_in_transaction,
+                                      bool reverse) {
   ReadItems(item_file, nu_trans, nu_items, bsh,
             item, item_names, transaction_names, max_item_in_transaction);
-  ReadPosNeg(pos_file, *nu_trans, transaction_names, nu_pos_total, *bsh, positive);
+  ReadPosNeg(pos_file, *nu_trans, transaction_names, nu_pos_total, *bsh, positive, pos_val, reverse);
 }
 
 template<typename Block>
@@ -86,8 +86,7 @@ void DatabaseReader<Block>::ReadFiles(VariableBitsetHelper<Block> ** bsh,
                                       int * nu_items,
                                       std::vector< std::string > * item_names,
                                       std::vector< std::string > * transaction_names,
-                                      int * max_item_in_transaction)
-{
+                                      int * max_item_in_transaction) {
   ReadItems(item_file, nu_trans, nu_items, bsh,
             item, item_names, transaction_names, max_item_in_transaction);
 }
@@ -99,14 +98,14 @@ void DatabaseReader<Block>::ReadFilesLCM(VariableBitsetHelper<Block> ** bsh,
                                          int * nu_trans,
                                          int * nu_items,
                                          std::istream & pos_file,
-                                         Block ** positive,
+                                         Block ** positive, double ** pos_val,
                                          int * nu_pos_total,
                                          std::vector< std::string > * item_names,
-                                         int * max_item_in_transaction)
-{
+                                         int * max_item_in_transaction,
+                                         bool reverse) {
   ReadItemsLCM(item_file, nu_trans, nu_items, bsh,
                item, item_names, max_item_in_transaction);
-  ReadPosNeg(pos_file, *nu_trans, NULL, nu_pos_total, *bsh, positive);
+  ReadPosNeg(pos_file, *nu_trans, NULL, nu_pos_total, *bsh, positive, pos_val, reverse);
 }
 
 template<typename Block>
@@ -116,8 +115,7 @@ void DatabaseReader<Block>::ReadFilesLCM(VariableBitsetHelper<Block> ** bsh,
                                          int * nu_trans,
                                          int * nu_items,
                                          std::vector< std::string > * item_names,
-                                         int * max_item_in_transaction)
-{
+                                         int * max_item_in_transaction) {
   ReadItemsLCM(item_file, nu_trans, nu_items, bsh,
                item, item_names, max_item_in_transaction);
 }
@@ -128,7 +126,7 @@ int DatabaseReader<Block>::CountLines(std::istream & is) const {
   std::string line;
   while (true) {
     std::getline(is, line);
-    if ( ! is.good() ) {
+    if (!is.good()) {
       is.clear();
       is.seekg(0); // rewind
       break;
@@ -149,7 +147,7 @@ bool DatabaseReader<Block>::ReadFirstPhase(std::istream & is,
 
   {
     std::getline(is, line);
-    if ( ! is.good() ) {
+    if (!is.good()) {
       *nu_trans = 0;
       *nu_non_zero_trans = 0;
       is.clear();
@@ -164,12 +162,12 @@ bool DatabaseReader<Block>::ReadFirstPhase(std::istream & is,
     std::getline(is, line);
     trimmed_line = boost::algorithm::trim_copy(line);
     // eof, fail, bad
-    if ( ! is.good() ) break;
+    if (!is.good()) break;
 
     boost::tokenizer< boost::char_separator<char> > tokens(trimmed_line, sep);
-    boost::tokenizer< boost::char_separator<char> >::iterator tok_iter=tokens.begin();
+    boost::tokenizer< boost::char_separator<char> >::iterator tok_iter = tokens.begin();
     transaction_names->push_back(*tok_iter); // first element is transaction name
-    ++ tok_iter;
+    ++tok_iter;
     int counter = 0; // item counter for this transaction
     int pos_counter = 0; // pos counter for this transaction
     for (; tok_iter != tokens.end(); ++tok_iter) {
@@ -202,7 +200,7 @@ void DatabaseReader<Block>::ReadItems(std::istream & is,
   *nu_items = 0;
   int nu_transactions = 0;
   int nu_non_zero_transactions = 0;
-  
+
   // read 1st line, tokenize, count items
   // read line, tokenize
 
@@ -213,8 +211,8 @@ void DatabaseReader<Block>::ReadItems(std::istream & is,
   bool ok = ReadFirstPhase(is, &nu_transactions, transaction_names,
                            &nu_non_zero_transactions);
   if (!ok || nu_transactions == 0) {
-    bsh = NULL;
-    data = NULL;
+    *bsh = NULL;
+    *data = NULL;
     *nu_trans = nu_transactions;
     *nu_items = 0;
     *max_item_in_transaction = 0;
@@ -226,17 +224,17 @@ void DatabaseReader<Block>::ReadItems(std::istream & is,
   {
     std::getline(is, line);
     trimmed_line = boost::algorithm::trim_copy(line);
-    if ( ! is.good() ) {
-      bsh = NULL;
-      data = NULL;
+    if (!is.good()) {
+      *bsh = NULL;
+      *data = NULL;
       *nu_trans = nu_transactions;
       *nu_items = 0;
       *max_item_in_transaction = 0;
     }
     boost::tokenizer< boost::char_separator<char> > tokens(trimmed_line, sep);
-    
-    boost::tokenizer< boost::char_separator<char> >::iterator tok_iter=tokens.begin();
-    ++ tok_iter; // skip first element. should be "#gene"
+
+    boost::tokenizer< boost::char_separator<char> >::iterator tok_iter = tokens.begin();
+    ++tok_iter; // skip first element. should be "#gene"
     int counter = 0;
     for (; tok_iter != tokens.end(); ++tok_iter) {
       item_names->push_back(*tok_iter);
@@ -247,7 +245,7 @@ void DatabaseReader<Block>::ReadItems(std::istream & is,
 
   *bsh = new VariableBitsetHelper<Block>(nu_non_zero_transactions);
   // bitset array for num bits=nu_transactions and entries=nu_items
-  *data = (*bsh)->NewArray( (std::size_t)(*nu_items));
+  *data = (*bsh)->NewArray((std::size_t)(*nu_items));
 
   int trans_counter = 0;
   int non_zero_trans_counter = 0;
@@ -255,19 +253,18 @@ void DatabaseReader<Block>::ReadItems(std::istream & is,
     std::getline(is, line);
     trimmed_line = boost::algorithm::trim_copy(line);
     // eof, fail, bad
-    if ( ! is.good() || non_zero_trans_counter == nu_non_zero_transactions ) break;
+    if (!is.good() || non_zero_trans_counter == nu_non_zero_transactions) break;
 
     boost::tokenizer< boost::char_separator<char> > tokens(trimmed_line, sep);
-    boost::tokenizer< boost::char_separator<char> >::iterator tok_iter=tokens.begin();
+    boost::tokenizer< boost::char_separator<char> >::iterator tok_iter = tokens.begin();
     // read transaction name in 1st phase, skipping
-    ++ tok_iter;
+    ++tok_iter;
     int counter = 0; // item counter for this transaction
     int pos_counter = 0; // pos counter for this transaction
     for (; tok_iter != tokens.end(); ++tok_iter) {
       if (*tok_iter == "0") {
         (*bsh)->Reset(non_zero_trans_counter, (*bsh)->N((*data), counter)); // (pos, *elm)
-      }
-      else {
+      } else {
         (*bsh)->Doset(non_zero_trans_counter, (*bsh)->N((*data), counter)); // (pos, *elm)
         pos_counter++;
       }
@@ -277,10 +274,10 @@ void DatabaseReader<Block>::ReadItems(std::istream & is,
     trans_counter++;
     if (pos_counter > 0) non_zero_trans_counter++;
 
-    assert( *nu_items == counter );
+    assert(*nu_items == counter);
   }
   // assert( nu_transactions == trans_counter ); // does not hold if last lines are skipped
-  assert( nu_non_zero_transactions == non_zero_trans_counter );
+  assert(nu_non_zero_transactions == non_zero_trans_counter);
   if (nu_non_zero_transactions != non_zero_trans_counter)
     throw std::runtime_error("read 1st 2nd phase mismatch (shouldn't happen)");
 }
@@ -302,10 +299,10 @@ bool DatabaseReader<Block>::ReadFirstPhaseLCM(std::istream & is,
     std::getline(is, line);
     trimmed_line = boost::algorithm::trim_copy(line);
     // eof, fail, bad
-    if ( ! is.good() ) break;
+    if (!is.good()) break;
 
     boost::tokenizer< boost::char_separator<char> > tokens(trimmed_line, sep);
-    boost::tokenizer< boost::char_separator<char> >::iterator tok_iter=tokens.begin();
+    boost::tokenizer< boost::char_separator<char> >::iterator tok_iter = tokens.begin();
 
     int pos_counter = 0; // pos counter for this transaction
     for (; tok_iter != tokens.end(); ++tok_iter) {
@@ -334,7 +331,7 @@ bool DatabaseReader<Block>::ReadFirstPhaseLCM(std::istream & is,
   int item_count = 0;
   for (std::set< std::string >::const_iterator it = item_names.begin();
        it != item_names.end(); ++it) {
-    item_name_id_map_.insert( std::pair<std::string, int>(*it, item_count) );
+    item_name_id_map_.insert(std::pair<std::string, int>(*it, item_count));
     item_count++;
   }
 
@@ -369,11 +366,11 @@ void DatabaseReader<Block>::ReadItemsLCM(std::istream & is,
 
   *bsh = new VariableBitsetHelper<Block>(nu_non_zero_transactions);
   // bitset array for num bits=nu_non_zero_transactions and entries=nu_items
-  *data = (*bsh)->NewArray( (std::size_t)(*nu_items));
+  *data = (*bsh)->NewArray((std::size_t)(*nu_items));
 
-  for(std::map< std::string, int >::const_iterator it = item_name_id_map_.begin();
-      it != item_name_id_map_.end(); ++it) {
-    item_names->push_back( (*it).first );
+  for (std::map< std::string, int >::const_iterator it = item_name_id_map_.begin();
+       it != item_name_id_map_.end(); ++it) {
+    item_names->push_back((*it).first);
   }
 
   int trans_counter = 0;
@@ -383,10 +380,10 @@ void DatabaseReader<Block>::ReadItemsLCM(std::istream & is,
 
     trimmed_line = boost::algorithm::trim_copy(line);
     // eof, fail, bad
-    if ( ! is.good() || non_zero_trans_counter == nu_non_zero_transactions ) break;
+    if (!is.good() || non_zero_trans_counter == nu_non_zero_transactions) break;
 
     boost::tokenizer< boost::char_separator<char> > tokens(trimmed_line, sep);
-    boost::tokenizer< boost::char_separator<char> >::iterator tok_iter=tokens.begin();
+    boost::tokenizer< boost::char_separator<char> >::iterator tok_iter = tokens.begin();
     int pos_counter = 0; // pos counter for this transaction
 
     for (; tok_iter != tokens.end(); ++tok_iter) {
@@ -398,7 +395,8 @@ void DatabaseReader<Block>::ReadItemsLCM(std::istream & is,
       assert(it != item_name_id_map_.end());
       int item_id = (*it).second;
 
-      assert(item_id >= 0); assert(item_id < *nu_items);
+      assert(item_id >= 0);
+      assert(item_id < *nu_items);
       (*bsh)->Doset(non_zero_trans_counter, (*bsh)->N((*data), item_id)); // (pos, *elm)
       pos_counter++;
     }
@@ -407,7 +405,7 @@ void DatabaseReader<Block>::ReadItemsLCM(std::istream & is,
     if (pos_counter > 0) non_zero_trans_counter++;
   }
 
-  assert( nu_non_zero_transactions == non_zero_trans_counter );
+  assert(nu_non_zero_transactions == non_zero_trans_counter);
   if (nu_non_zero_transactions != non_zero_trans_counter)
     throw std::runtime_error("read 1st 2nd phase mismatch (shouldn't happen)");
 }
@@ -418,7 +416,8 @@ void DatabaseReader<Block>::ReadPosNeg(std::istream & is,
                                        std::vector< std::string > * trans_names,
                                        int * nu_pos_total,
                                        const VariableBitsetHelper<Block> * bsh,
-                                       Block ** positive) {
+                                       Block ** positive, double ** pos_val,
+                                       bool reverse) {
   std::string line;
   std::string trimmed_line;
   boost::char_separator<char> sep(", ");
@@ -428,38 +427,61 @@ void DatabaseReader<Block>::ReadPosNeg(std::istream & is,
   }
 
   *positive = bsh->New();
+  *pos_val = new double[trans_names->size()];
 
   int trans_counter = 0;
   int non_zero_trans_counter = 0;
+  int zero_trans_ptr = nu_trans - 1;
   (*nu_pos_total) = 0;
   while (1) {
     std::getline(is, line);
     trimmed_line = boost::algorithm::trim_copy(line);
     // eof, fail, bad
-    if ( ! is.good()  ) break;
+    if (!is.good()) break;
 
     boost::tokenizer< boost::char_separator<char> > tokens(trimmed_line, sep);
-    boost::tokenizer< boost::char_separator<char> >::iterator tok_iter=tokens.begin();
-    if ( trans_names != NULL && (*trans_names)[trans_counter] != (*tok_iter) )
+    boost::tokenizer< boost::char_separator<char> >::iterator tok_iter = tokens.begin();
+    if (trans_names != NULL && (*trans_names)[trans_counter] != (*tok_iter))
       throw std::runtime_error(
           std::string("item file / positive file trans name mismatch ")
           + (*trans_names)[trans_counter]
           + std::string(" : ")
           + (*tok_iter));
-    ++ tok_iter;
+    ++tok_iter;
 
-    if (non_zero_trans_list_[non_zero_trans_counter] == trans_counter) {
-      if (*tok_iter == "0") {
-        bsh->Reset(non_zero_trans_counter, *positive);
+    if (reverse) {
+      if (non_zero_trans_list_[non_zero_trans_counter] == trans_counter) {
+        if (*tok_iter == "0") {
+          bsh->Doset(non_zero_trans_counter, *positive);
+          (*nu_pos_total)++;
+        } else {// "1"
+          bsh->Reset(non_zero_trans_counter, *positive);
+        }
+        (*pos_val)[non_zero_trans_counter] = 0.0 - atof((*tok_iter).c_str());
+        non_zero_trans_counter++;
+      } else {
+        if (*tok_iter == "0") {// "1"
+          (*nu_pos_total)++;
+        }
+        (*pos_val)[zero_trans_ptr] = 0.0 - atof((*tok_iter).c_str());
+        zero_trans_ptr--;
       }
-      else {// "1"
-        bsh->Doset(non_zero_trans_counter, *positive);
-        (*nu_pos_total)++;
-      }
-      non_zero_trans_counter++;
     } else {
-      if (*tok_iter != "0") {// "1"
-        (*nu_pos_total)++;
+      if (non_zero_trans_list_[non_zero_trans_counter] == trans_counter) {
+        if (*tok_iter == "0") {
+          bsh->Reset(non_zero_trans_counter, *positive);
+        } else {// "1"
+          bsh->Doset(non_zero_trans_counter, *positive);
+          (*nu_pos_total)++;
+        }
+        (*pos_val)[non_zero_trans_counter] = atof((*tok_iter).c_str());
+        non_zero_trans_counter++;
+      } else {
+        if (*tok_iter != "0") {// "1"
+          (*nu_pos_total)++;
+        }
+        (*pos_val)[zero_trans_ptr] = atof((*tok_iter).c_str());
+        zero_trans_ptr--;
       }
     }
     trans_counter++;
@@ -480,12 +502,12 @@ std::ostream & DatabaseReader<Block>::PrintLCM(std::ostream & out,
                                                const Block * data) const {
   std::stringstream s;
 
-  int non_zero_index=0;
-  for (int ti=0;ti<nu_trans;ti++) {
+  int non_zero_index = 0;
+  for (int ti = 0; ti < nu_trans; ti++) {
     if (non_zero_trans_list_[non_zero_index] == ti) {
-      for (int ii=0;ii<nu_items;ii++) {
-        if ( bsh->Test(bsh->N(data, ii), non_zero_index) )
-          s << (ii+1) << " ";
+      for (int ii = 0; ii < nu_items; ii++) {
+        if (bsh->Test(bsh->N(data, ii), non_zero_index))
+          s << (ii + 1) << " ";
       }
       s << std::endl;
       non_zero_index++;
@@ -495,7 +517,7 @@ std::ostream & DatabaseReader<Block>::PrintLCM(std::ostream & out,
     }
   }
 
-  assert(non_zero_index = bsh->nu_bits);
+  assert(non_zero_index == bsh->NuBits());
 
   out << s.str() << std::flush;
   return out;
@@ -512,34 +534,33 @@ std::ostream & DatabaseReader<Block>::PrintCSV(std::ostream & out,
 
   // header line
   s << "#i";
-  if (item_names == NULL) for (int ii=0;ii<nu_items;ii++) s << "," << ii;
+  if (item_names == NULL) for (int ii = 0; ii < nu_items; ii++) s << "," << ii;
   else {
     for (std::map< std::string, int >::const_iterator it = item_name_id_map_.begin();
-         it != item_name_id_map_.end(); ++it)
-    {
+         it != item_name_id_map_.end(); ++it) {
       s << "," << (*it).first;
     }
   }
   s << std::endl;
 
-  int non_zero_index=0;
-  for (int ti=0;ti<nu_trans;ti++) {
+  int non_zero_index = 0;
+  for (int ti = 0; ti < nu_trans; ti++) {
     s << ti;
     if (non_zero_trans_list_[non_zero_index] == ti) {
-      for (int ii=0;ii<nu_items;ii++) {
-        if ( bsh->Test(bsh->N(data, ii), non_zero_index) ) s << ",1";
+      for (int ii = 0; ii < nu_items; ii++) {
+        if (bsh->Test(bsh->N(data, ii), non_zero_index)) s << ",1";
         else s << ",0";
       }
       s << std::endl;
       non_zero_index++;
     } else {
       // add all zero line for all zero transactions
-      for (int ii=0;ii<nu_items;ii++) s << ",0";
+      for (int ii = 0; ii < nu_items; ii++) s << ",0";
       s << std::endl;
     }
   }
 
-  assert(non_zero_index = bsh->nu_bits);
+  assert(non_zero_index == bsh->NuBits());
 
   out << s.str() << std::flush;
   return out;
@@ -547,36 +568,48 @@ std::ostream & DatabaseReader<Block>::PrintCSV(std::ostream & out,
 
 //==============================================================================
 
+/**
+ * Constructor
+ */
 template<typename Block>
 Database<Block>::Database(VariableBitsetHelper<Block> * bsh,
                           Block * item_array,
                           std::size_t nu_trans,
                           std::size_t nu_items,
-                          Block * pos_array, std::size_t nu_pos_total,
+                          Block * pos_array, double * pos_val, std::size_t nu_pos_total,
                           int max_item_in_transaction,
                           std::vector< std::string > * item_names,
-                          std::vector< std::string > * trans_names) :
-    bsh_ (bsh),
-    nu_items_ (nu_items),
-    item_names_ (item_names),
-    nu_transactions_ (nu_trans),
-    transaction_names_ (trans_names),
-    nu_pos_total_(nu_pos_total),
-    data_ (item_array),
-    max_x_ (-1),
-    has_positives_ ( !(pos_array == NULL) ),
-    posneg_ (pos_array),
-    max_t_ (-1),
-    max_item_in_transaction_ (max_item_in_transaction)
-{
-  assert(nu_pos_total > 0);
+                          std::vector< std::string > * trans_names,
+                          FunctionsSuper & functions) :
+	bsh_(bsh),
+	nu_items_(nu_items),
+	item_names_(item_names),
+	nu_transactions_(nu_trans),
+	transaction_names_(trans_names),
+	nu_pos_total_(nu_pos_total),
+	data_(item_array),
+	max_x_(-1),
+	has_positives_(!(pos_array == NULL)),
+	posneg_(pos_array),
+	pos_val_(pos_val),
+	max_t_(-1),
+	max_item_in_transaction_(max_item_in_transaction),
+	functions(functions) {
+  if (functions.isBinary())
+    assert(nu_pos_total > 0);
+  functions.setAllSize(nu_trans);
+  functions.setN1(nu_pos_total);
   Init();
 }
 
+/**
+ * Destructor
+ */
 template<typename Block>
 Database<Block>::~Database() {
-  if (data_)   bsh_->Delete(data_);
+  if (data_) bsh_->Delete(data_);
   if (posneg_) bsh_->Delete(posneg_);
+  if (pos_val_) delete [] pos_val_;
 
   if (item_names_) delete item_names_;
   if (transaction_names_) delete transaction_names_;
@@ -585,8 +618,6 @@ Database<Block>::~Database() {
 template<typename Block>
 void Database<Block>::Init() {
   // SetSigLev(FLAGS_a); // double
-  pval_cal_buf = new double[NuTransaction()];
-  pval_log_cal_buf = new double[NuTransaction()];
   PrepareItemVals();
 }
 
@@ -595,8 +626,6 @@ void Database<Block>::SetValuesForTest(int nu_item, int nu_transaction, int nu_p
   nu_items_ = nu_item;
   nu_transactions_ = nu_transaction;
   nu_pos_total_ = nu_pos_total;
-  pval_cal_buf = new double[NuTransaction()];
-  pval_log_cal_buf = new double[NuTransaction()];
 
   // should be given as paramters?
   max_x_ = nu_transaction;
@@ -604,51 +633,30 @@ void Database<Block>::SetValuesForTest(int nu_item, int nu_transaction, int nu_p
 }
 
 template<typename Block>
-void Database<Block>::InitPMinLogTable() {
-  pmin_table_.resize(max_x_+1);
-  pmin_log_table_.resize(max_x_+1);
-  for (int i=0;i<=max_x_;i++) {
-    pmin_log_table_[i] = PMinCalLog(i);
-    pmin_table_[i] = exp(pmin_log_table_[i]);
-  }
-}
-
-template<typename Block>
 std::ostream & Database<Block>::DumpPMinTable(std::ostream & out) const {
   std::stringstream s;
 
-  for (int i=0;i<=max_x_;i++)
+  for (int i = 0; i <= max_x_; i++)
     s << "i=" << i
-      << "\tpmin=" << pmin_table_[i]
-      << "\tpmin_log=" << pmin_log_table_[i] << std::endl;
+      << "\tpmin=" << PMin(i)
+      << "\tpmin_log=" << PMinLog(i) << std::endl;
 
   out << s.str() << std::flush;
   return out;
 }
 
 template<typename Block>
-void Database<Block>::InitPValTableLog() {
-  pval_table_.resize( (max_x_+1) * (max_t_+1) );
-  for (int i=0;i<=max_x_;i++) { // sup == x
-    for (int j=0;j<=max_t_;j++) { // pos_sup == t
-      if (j>i) continue;
-      pval_table_[i*(max_t_+1) + j] = PValCalLog(i, j);
-    }
-  }
-}
-
-template<typename Block>
 std::ostream & Database<Block>::DumpPValTable(std::ostream & out) const {
   std::stringstream s;
 
-  for (int i=0;i<=max_x_;i++) { // sup == x
-    for (int j=0;j<=max_t_;j++) { // pos_sup == t
-      if (j>i) continue;
+  for (int i = 0; i <= max_x_; i++) { // sup == x
+    for (int j = 0; j <= max_t_; j++) { // pos_sup == t
+      if (j > i) continue;
       s << "i=" << i
         << "\tj=" << j
         << "\tij" << i * j
-        << "\tpval=" << pval_table_[i*(max_t_+1) + j]
-        << "\tpval=" << PVal(i, j)
+          //        << "\tpval=" << pval_table_[i*(max_t_+1) + j]
+          //        << "\tpval=" << PVal(i, j)
         << std::endl;
     }
   }
@@ -661,7 +669,7 @@ template<typename Block>
 std::ostream & Database<Block>::DumpItems(std::ostream & out) const {
   std::stringstream s;
 
-  for (int i=0 ; i<NuItems() ; i++) {
+  for (int i = 0; i < NuItems(); i++) {
     bsh_->Print(s, bsh_->N(data_, i));
     s << "\n";
   }
@@ -685,43 +693,31 @@ std::ostream & Database<Block>::ShowInfo(std::ostream & out) const {
   std::stringstream s;
 
   s << "# of transactions=" << std::setw(12) << nu_transactions_
-    << "\t# of items="      << std::setw(12) << nu_items_
-    << "\t# of total positives="  << std::setw(12) << nu_pos_total_
-    << "\tmax freq="         << std::setw(12) << max_x_
-    << "\tmax positive="         << std::setw(12) << max_t_
+    << "\t# of items=" << std::setw(12) << nu_items_
+    << "\t# of total positives=" << std::setw(12) << nu_pos_total_
+    << "\tmax freq=" << std::setw(12) << max_x_
+    << "\tmax positive=" << std::setw(12) << max_t_
     << "\tmax items in trans.=" << std::setw(12) << max_item_in_transaction_
-    << std::endl;
-  
+    << "\tmethod=" << std::setw(12) << functions.getName()
+    << "\talternative=";
+  if (functions.getAlternative() == 0) {
+    s << std::setw(12) << "two.sided";
+  } else if (functions.getAlternative() == 1) {
+    if (functions.isReverse()) {
+      s << std::setw(12) << "less";
+    } else {
+      s << std::setw(12) << "greater";
+    }
+  } else if (functions.getAlternative() == -1) {
+    s << std::setw(12) << "less";
+  }
+  s << std::endl;
+
   out << s.str() << std::flush;
   return out;
 }
 
 //==============================================================================
-
-template<typename Block>
-double Database<Block>::PMinCalLog(int sup) const {
-  //if (sup == 0) return -(std::numeric_limits<double>::infinity());
-  double minp_log = 0.0;
-
-  { // for (int i = 0; i < confsize; ++i
-    minp_log += PMinCalLogSub(sup);
-  }
-  return minp_log;
-}
-
-template<typename Block>
-double Database<Block>::PMinCalLogSub(int sup) const {
-  double minp_i_log = 0.0;
-
-  unsigned int uplim = sup;
-  if (sup > PosTotal()) uplim = PosTotal();
-  for (unsigned int i = 0; i < uplim; ++i) {
-    minp_i_log += log((double)(PosTotal() - i));
-    minp_i_log -= log((double)(NuTransaction() - i));
-  }
-  assert(!std::isnan(minp_i_log));
-  return minp_i_log;
-}
 
 //        pos   neg     freq
 //---------------------------
@@ -736,59 +732,18 @@ double Database<Block>::PMinCalLogSub(int sup) const {
 // support_all  == sup          == x      == group_sup
 // obs_t        == pos_sup      == t      == group_pos_sup
 
-template<typename Block>
-double Database<Block>::PValCalLog(int sup, int pos_sup) const {
-  int uplim = sup;
-  if (PosTotal() < uplim) uplim = PosTotal();
-  int lowlim = 0;
-  if ((NuTransaction() - PosTotal() - sup) < 0) lowlim = sup - NuTransaction() + PosTotal();
-
-  // calculate probability of each table
-
-  // buffer is prepared as a member variable in class Graph
-  // maybe doing zero clear is safer
-  for (int ti=0;ti<NuTransaction();ti++)
-    pval_log_cal_buf[ti] = -(std::numeric_limits<double>::infinity());
-
-  double p1_log = PMinLog(sup);
-
-  if (sup > PosTotal()){
-    for (int j = 0.0; j < sup - PosTotal(); ++j){
-      p1_log += log((double)(sup-j));
-      p1_log -= log((double)(j + 1));
-    }
-  }
-  double p2_log = 0.0;
-  pval_log_cal_buf[uplim - lowlim] = p1_log;
-  int neg_size = NuTransaction() - PosTotal();
-
-  double p1p2_log = p1_log + p2_log;
-
-  for (int j = uplim - 1; j >= lowlim; --j) {
-    p1p2_log += log((double)(j + 1));
-    p1p2_log -= log((double)(PosTotal() - j));
-    p1p2_log += log((double)(neg_size - sup + j + 1));
-    p1p2_log -= log((double)(sup - j));
-
-    assert(!std::isnan(p1p2_log));
-    pval_log_cal_buf[j-lowlim] = p1p2_log;
-  }
-  
-  double p = 0.0;
-  int t = lowlim;
-  while (t <= uplim){
-    if (t >= pos_sup){
-      double p_i_log = 0.0;
-      p_i_log += pval_log_cal_buf[t - lowlim];
-      assert(!std::isnan(p_i_log));
-      p += exp(p_i_log);
-    }
-    // update t_list
-    t += 1;
-  }
-  assert(!std::isnan(p));
-  return p;
-}
+//template<typename Block>
+//double Database<Block>::PValCalLog(int sup, int pos_sup) const {
+//	double score = 0.0;
+//	double stat = 0.0;
+//	double ovalues[2][2];
+//	ovalues[0][0] = pos_sup;
+//	ovalues[0][1] = sup - pos_sup;
+//	ovalues[1][0] = PosTotal() - pos_sup;
+//	ovalues[1][1] = NuTransaction() - sup - ovalues[1][0];
+//	double p = functions.calPValue(ovalues, score, stat);
+//	return p;
+//}
 
 template<typename Block>
 void Database<Block>::PrepareItemVals() {
@@ -798,7 +753,7 @@ void Database<Block>::PrepareItemVals() {
   int max_sup_count = -1;
   int max_pos_count = -1;
 
-  for (std::size_t i=0 ; i < (std::size_t)NuItems() ; i++) {
+  for (std::size_t i = 0; i < (std::size_t)NuItems(); i++) {
     int sup = bsh_->Count(bsh_->N(data_, i));
     max_sup_count = std::max(max_sup_count, sup);
     if (has_positives_) {
@@ -810,15 +765,15 @@ void Database<Block>::PrepareItemVals() {
   max_x_ = max_sup_count;
   if (has_positives_) max_t_ = max_pos_count;
 
-  sup_hist_.resize(max_x_+1);
-  sup_cum_hist_.resize(max_x_+1);
-  reduced_item_list_.resize(max_x_+1);
-  reduced_item_list_prepared_.resize(max_x_+1, false);
+  sup_hist_.resize(max_x_ + 1);
+  sup_cum_hist_.resize(max_x_ + 1);
+  reduced_item_list_.resize(max_x_ + 1);
+  reduced_item_list_prepared_.resize(max_x_ + 1, false);
 
-  InitPMinLogTable();
-  if (has_positives_) InitPValTableLog();
+  //  InitPMinLogTable();
+  //  if (has_positives_) InitPValTableLog();
 
-  for (std::size_t i=0 ; i < (std::size_t)NuItems() ; i++) {
+  for (std::size_t i = 0; i < (std::size_t)NuItems(); i++) {
     int sup = bsh_->Count(bsh_->N(data_, i));
 
     sup_hist_[sup]++;
@@ -830,15 +785,15 @@ void Database<Block>::PrepareItemVals() {
     if (has_positives_) {
       int pos_sup = bsh_->AndCount(posneg_, bsh_->N(data_, i));
       new_item.pos_sup = pos_sup;
-      new_item.pval = PVal(sup, pos_sup);
-    }
-    else new_item.pval = -1.0; // maybe wrong
+      //      new_item.pval = PVal(sup, pos_sup);
+      new_item.pval = PVal(sup, pos_sup, bsh_->N(data_, i), pos_val_);
+    } else new_item.pval = -1.0; // maybe wrong
 
     item_info_.push_back(new_item);
   }
 
   int total = 0;
-  for (int l=max_x_;l>=0;l--) {
+  for (int l = max_x_; l >= 0; l--) {
     total += sup_hist_[l];
     sup_cum_hist_[l] = total;
   }
@@ -846,8 +801,8 @@ void Database<Block>::PrepareItemVals() {
 
 template<typename Block>
 long long int Database<Block>::Count1() const {
-  long long int total=0ll;
-  for (int l=0;l<=max_x_;l++) {
+  long long int total = 0ll;
+  for (int l = 0; l <= max_x_; l++) {
     total += sup_hist_[l] * l;
   }
   return total;
@@ -856,9 +811,9 @@ long long int Database<Block>::Count1() const {
 template<typename Block>
 double Database<Block>::Density() const {
   long long int num1 = Count1();
-  long long int all = bsh_->nu_bits * NuItems();
+  long long int all = bsh_->NuBits() * NuItems();
 
-  return (double)num1 / (double)all;
+  return (double) num1 / (double) all;
 }
 
 template<typename Block>
@@ -866,8 +821,8 @@ int Database<Block>::PrepareReducedList(int lambda) {
   std::vector<int> & vec = reduced_item_list_[lambda];
   if (reduced_item_list_prepared_[lambda]) return vec.size();
 
-  for (int i=0 ; i < NuItems() ; i++) {
-    assert( item_info_[i].id == i);
+  for (int i = 0; i < NuItems(); i++) {
+    assert(item_info_[i].id == i);
     if (item_info_[i].sup >= lambda) {
       vec.push_back(i);
     }
@@ -889,7 +844,7 @@ int Database<Block>::NuAllZeroTrans() const {
   Block * sup_buf = bsh_->New();
 
   bsh_->Reset(sup_buf);
-  for (std::size_t i=0 ; i < (std::size_t)NuItems() ; i++) {
+  for (std::size_t i = 0; i < (std::size_t)NuItems(); i++) {
     bsh_->Or(bsh_->N(data_, i), sup_buf);
     // std::cout << "i=" << i << " ";
     // bsh_->Print(std::cout, bsh_->N(data_, i));
@@ -900,7 +855,7 @@ int Database<Block>::NuAllZeroTrans() const {
   int count = bsh_->Count(sup_buf);
 
   // assert all one (e.g. no all-zero transaction)
-  assert(bsh_->nu_bits == (std::size_t)count);
+  assert(bsh_->NuBits() == (std::size_t)count);
 
   bsh_->Delete(sup_buf);
   return (nu_transactions_ - count);

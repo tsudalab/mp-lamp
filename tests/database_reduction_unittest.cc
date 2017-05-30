@@ -38,13 +38,15 @@
 
 #include "variable_length_itemset.h"
 #include "database.h"
+#include "functions/Functions4fisher.h"
 
 using namespace lamp_search;
 
-TEST (DatabaseReductionTest, SimpleReduceTest) {
+TEST(DatabaseReductionTest, SimpleReduceTest) {
   VariableBitsetHelper<uint64> * bsh = NULL;
   uint64 * data = NULL;
   uint64 * positive = NULL;
+  double * pos_val = NULL;
   boost::array<int, 3> counters; // nu_bits, nu_items, max_item_in_transaction
   counters.assign(-1);
 
@@ -66,8 +68,8 @@ TEST (DatabaseReductionTest, SimpleReduceTest) {
     // read file into uint64 * array and prepare database
     reader.ReadItems(ifs1, &nu_trans, &nu_items, &bsh,
                      &data, item_names, transaction_names, &max_item_in_transaction);
-    counters[0] = (int)(bsh->nu_bits);
-    counters[1] = nu_items; 
+    counters[0] = (int) (bsh->NuBits());
+    counters[1] = nu_items;
     counters[2] = max_item_in_transaction;
     ifs1.close();
   }
@@ -77,7 +79,7 @@ TEST (DatabaseReductionTest, SimpleReduceTest) {
     ifs2.open("../../../samples/sample_data/sample_expression_over1.csv", std::ios::in);
     // read positives into uint64 * array and prepare database
     reader.ReadPosNeg(ifs2, nu_trans, transaction_names,
-                      &nu_pos_total, bsh, &positive);
+                      &nu_pos_total, bsh, &positive, &pos_val, false);
     // positive_count = bsh->NuBlocks();
     ifs2.close();
   }
@@ -93,14 +95,16 @@ TEST (DatabaseReductionTest, SimpleReduceTest) {
   //     "011000011010011\n"
   //     ;
 
+  Functions4fisher functions(nu_trans, nu_pos_total, 1);
   Database<uint64> d(bsh, data, nu_trans, nu_items,
-                     positive, nu_pos_total,
+                     positive, pos_val, nu_pos_total,
                      max_item_in_transaction,
-                     item_names, transaction_names);
+                     item_names, transaction_names, functions);
 
   //d.SetSigLev(0.05);
   //d.PrepareItemVals();
-  BOOST_FOREACH (const ItemInfo item, d.GetItemInfo()) {
+
+  BOOST_FOREACH(const ItemInfo item, d.GetItemInfo()) {
     std::cout << item << std::endl;
   }
 
@@ -110,7 +114,8 @@ TEST (DatabaseReductionTest, SimpleReduceTest) {
 
   std::vector<int> & v1 = d.ReducedList(1);
   std::cout << "v1:";
-  BOOST_FOREACH (int i, v1) {
+
+  BOOST_FOREACH(int i, v1) {
     std::cout << " " << i;
   }
   std::cout << std::endl;
@@ -123,7 +128,8 @@ TEST (DatabaseReductionTest, SimpleReduceTest) {
 
   std::vector<int> & v7 = d.ReducedList(7);
   std::cout << "v7:";
-  BOOST_FOREACH (int i, v7) {
+
+  BOOST_FOREACH(int i, v7) {
     std::cout << " " << i;
   }
   std::cout << std::endl;
@@ -139,7 +145,8 @@ TEST (DatabaseReductionTest, SimpleReduceTest) {
 
   const std::vector<int> & h = d.SupCumHist();
   std::cout << "hist:";
-  BOOST_FOREACH (int i, h) {
+
+  BOOST_FOREACH(int i, h) {
     std::cout << " " << i;
   }
   std::cout << std::endl;
@@ -148,7 +155,7 @@ TEST (DatabaseReductionTest, SimpleReduceTest) {
   EXPECT_EQ(25, d.Count1());
 
   std::cout << "density=" << d.Density() << std::endl;
-  EXPECT_EQ((25.0/48.0), d.Density());
+  EXPECT_EQ((25.0 / 48.0), d.Density());
 
   uint64 * sup = bsh->New();
   bsh->Delete(sup);

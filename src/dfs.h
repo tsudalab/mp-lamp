@@ -102,7 +102,6 @@ class DFSState {
   std::vector<int> edge_stack_; // sequence of selected edge id
   int depth_;
 
-  // hoge;
   // SupportDiffStack support_diff_stack_;
   std::vector< boost::dynamic_bitset<> > bitset_diff_stack_;
   boost::dynamic_bitset<> support_; // current support
@@ -165,7 +164,7 @@ class DFS {
   const TopKData & TopK() const { return top_k_; }
 
   std::vector<EdgeInfo> & GetEdgeInfo() { return edge_info_; }
-  const std::vector<EdgeInfo> & GetEdgeInfo() const { return edge_info_;}
+  const std::vector<EdgeInfo> & GetEdgeInfo() const { return edge_info_; }
 
  private:
   const Graph & g_;
@@ -195,6 +194,7 @@ class DFS {
 } // namespace lamp_search
 
 #endif // _LAMP_SEARCH_DFS_H_
+
 /* Local Variables:  */
 /* compile-command: "scons -u" */
 /* End:              */

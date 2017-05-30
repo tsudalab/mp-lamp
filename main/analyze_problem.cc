@@ -43,6 +43,7 @@
 #include "database.h"
 #include "lamp_graph.h"
 #include "lamp.h"
+#include "functions/Functions4fisher.h"
 
 DEFINE_bool(lcm, false, "item file is lcm style");
 
@@ -73,6 +74,7 @@ int main(int argc, char ** argv)
 
   uint64 * data = NULL;
   uint64 * positive = NULL;
+  double * pos_val = NULL;
   boost::array<int, 3> counters; // nu_bits, nu_items, max_item_in_transaction
   counters.assign(-1);
 
@@ -99,13 +101,13 @@ int main(int argc, char ** argv)
     if (FLAGS_lcm) {
       reader.ReadFilesLCM(&bsh,
                           ifs1, &data, &nu_trans, &nu_items,
-                          ifs2, &positive, &nu_pos_total,
-                          item_names, &max_item_in_transaction);
+                          ifs2, &positive, &pos_val, &nu_pos_total,
+                          item_names, &max_item_in_transaction, false);
     } else {
       reader.ReadFiles(&bsh,
                        ifs1, &data, &nu_trans, &nu_items,
-                       ifs2, &positive, &nu_pos_total,
-                       item_names, transaction_names, &max_item_in_transaction);
+                       ifs2, &positive, &pos_val, &nu_pos_total,
+                       item_names, transaction_names, &max_item_in_transaction, false);
     }
 
     ifs2.close();
@@ -127,10 +129,12 @@ int main(int argc, char ** argv)
     ifs1.close();
   }
 
+  Functions4fisher functions(nu_trans, nu_pos_total, 1);
   Database<uint64> d(bsh, data, nu_trans, nu_items,
-                     positive, nu_pos_total,
+                     positive, pos_val, nu_pos_total,
                      max_item_in_transaction,
-                     item_names, transaction_names);
+                     item_names, transaction_names,
+                     functions);
 
   end_time = Timer::GetInstance()->Elapsed();
   std::cout << "time=" << std::setw(12) << (end_time - start_time) / MEGA

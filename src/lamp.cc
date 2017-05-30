@@ -139,37 +139,37 @@ Lamp::Lamp(const LampGraph<uint64> & g) :
 }
 
 Lamp::~Lamp() {
-  if (node_stack_) delete node_stack_;
-  if (significant_stack_) delete significant_stack_;
-  if (significant_set_) delete significant_set_;
-  if (sigset_comp_) delete sigset_comp_;
+  if (node_stack_ != NULL) delete node_stack_;
+  if (significant_stack_ != NULL) delete significant_stack_;
+  if (significant_set_ != NULL) delete significant_set_;
+  if (sigset_comp_ != NULL) delete sigset_comp_;
   if (pmin_thr_ != NULL) delete [] pmin_thr_;
   if (cs_thr_ != NULL) delete [] cs_thr_;
   if (cs_accum_array_ != NULL) delete [] cs_accum_array_;
-  if (sup_buf_) bsh_.Delete(sup_buf_);
-  if (child_sup_buf_) bsh_.Delete(child_sup_buf_);
+  if (sup_buf_ != NULL) bsh_.Delete(sup_buf_);
+  if (child_sup_buf_ != NULL) bsh_.Delete(child_sup_buf_);
 }
 
 void Lamp::InitSearch() {
   lambda_max_ = d_.MaxX(); // the upper bound of sup
 
-  if (node_stack_) delete node_stack_;
+  if (node_stack_ != NULL) delete node_stack_;
   node_stack_ = new VariableLengthItemsetStack(FLAGS_stack_size);
 
-  if (significant_stack_) delete significant_stack_;
+  if (significant_stack_ != NULL) delete significant_stack_;
   significant_stack_ = new VariableLengthItemsetStack(FLAGS_freq_max);
 
-  if (sigset_comp_) delete sigset_comp_;
+  if (sigset_comp_ != NULL) delete sigset_comp_;
   sigset_comp_ = new sigset_compare(*significant_stack_);
 
-  if (significant_set_)
+  if (significant_set_ != NULL)
     significant_set_->clear();
   else
     significant_set_ = new std::set<SignificantSetResult, sigset_compare>(*sigset_comp_);
 
-  if (pmin_thr_) delete [] pmin_thr_;
-  if (cs_thr_) delete [] cs_thr_;
-  if (cs_accum_array_) delete [] cs_accum_array_;
+  if (pmin_thr_ != NULL) delete [] pmin_thr_;
+  if (cs_thr_ != NULL) delete [] cs_thr_;
+  if (cs_accum_array_ != NULL) delete [] cs_accum_array_;
 
   pmin_thr_ = new double[lambda_max_+1];
   cs_thr_ = new long long int[lambda_max_+1];
@@ -469,7 +469,7 @@ void Lamp::LCMIter(int * itemset, int sup_threshold, double sig_level) {
 
       if (FLAGS_third_phase) {
         int pos_sup_num = bsh_.AndCount(d_.PosNeg(), child_sup);
-        double pval = d_.PVal(sup_num, pos_sup_num);
+        double pval = d_.PVal(sup_num, pos_sup_num, child_sup, d_.PosVal());
         assert( pval >= 0.0 );
 
         RecordSignificantItemset(pval, sig_level, sup_num, pos_sup_num, ppc_ext_buf);
@@ -515,10 +515,10 @@ void Lamp::DiscardSignificantList(double sig_level) {
 
         for(rit = significant_set_->rbegin(); rit != significant_set_->rend();) {
           // permits == case
-          if (rit->pval_ > sig_level || significant_set_->size() > (std::size_t)FLAGS_max_sig_size) {
+          if (rit->pval_ > sig_level ||
+              significant_set_->size() > (std::size_t)FLAGS_max_sig_size) {
             significant_set_->erase(--rit.base());
-          }
-          else break;
+          } else break;
         }
       }
       break;
@@ -834,8 +834,7 @@ void Lamp::FirstPhaseLoop() {
 
       if (!res) {// todo: remove this redundancy
         node_stack_->Pop();
-      }
-      else {
+      } else {
         node_stack_->SortTop();
 
         // increment closed_set_num_array
@@ -918,14 +917,13 @@ void Lamp::LCMLoop() {
 
       if (!res) {// todo: remove this redundancy
         node_stack_->Pop();
-      }
-      else {
+      } else {
         node_stack_->SortTop();
         closed_set_num_++;
 
         if (FLAGS_third_phase) {
           int pos_sup_num = bsh_.AndCount(d_.PosNeg(), child_sup_buf_);
-          double pval = d_.PVal(sup_num, pos_sup_num);
+          double pval = d_.PVal(sup_num, pos_sup_num, child_sup_buf_, d_.PosVal());
           assert( pval >= 0.0 );
 
           RecordSignificantItemset(pval, sig_level_, sup_num, pos_sup_num, ppc_ext_buf);
@@ -974,21 +972,20 @@ std::ostream & Lamp::PrintSignificantSet(std::ostream & out) const {
   std::stringstream s;
 
   s << "# number of significant patterns=" << significant_set_->size() << std::endl;
-  s << "# pval (raw)    pval (corr)         freq     pos        # items items\n";
+  s << "# pval_(raw)\tpval_(corr)\tfreq\tpos\t#items\titems\n";
   for(std::set<SignificantSetResult, sigset_compare>::const_iterator it
           = significant_set_->begin();
       it != significant_set_->end(); ++it) {
 
-    s << ""   << std::setw(16) << std::left << (*it).pval_ << std::right
-      << ""  << std::setw(16) << std::left << (*it).pval_ * final_closed_set_num_ << std::right
-      << "" << std::setw(8)  << (*it).sup_num_
-      << ""  << std::setw(8)  << (*it).pos_sup_num_
-      << "";
-    // s << "pval (raw)=" << std::setw(16) << std::left << (*it).pval_ << std::right
-    //   << "pval (corr)="  << std::setw(16) << std::left << (*it).pval_ * final_closed_set_num_ << std::right
-    //   << "\tfreq=" << std::setw(8)  << (*it).sup_num_
-    //   << "\tpos="  << std::setw(8)  << (*it).pos_sup_num_
-    //   << "\titems";
+    s << (*it).pval_ << std::right
+      << "\t" << (*it).pval_ * final_closed_set_num_ << std::right
+      << "\t" << (*it).sup_num_
+      << "\t"  << std::setw(8)  << (*it).pos_sup_num_;
+    // s << ""   << std::setw(16) << std::left << (*it).pval_ << std::right
+    //   << ""  << std::setw(16) << std::left << (*it).pval_ * final_closed_set_num_ << std::right
+    //   << "" << std::setw(8)  << (*it).sup_num_
+    //   << ""  << std::setw(8)  << (*it).pos_sup_num_
+    //   << "";
 
     const int * item = (*it).set_;
     significant_stack_->Print(s, d_.ItemNames(), item);

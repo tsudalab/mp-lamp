@@ -49,6 +49,7 @@
 #include "lcm_graph_vba.h"
 #include "lamp_graph.h"
 #include "lamp.h"
+#include "functions/Functions4fisher.h"
 
 DECLARE_bool(show_progress); // "show progress at each iteration"
 DECLARE_bool(second_phase); // true, "do second phase"
@@ -61,6 +62,7 @@ TEST (LampTest, SmallSearchTest) {
 
   uint64 * data = NULL;
   uint64 * positive = NULL;
+  double * pos_val = NULL;
   boost::array<int, 3> counters; // nu_bits, nu_items, max_item_in_transaction
   counters.assign(-1);
 
@@ -93,15 +95,16 @@ TEST (LampTest, SmallSearchTest) {
     ifs2.open("../../../samples/sample_data/sample_expression_over1.csv", std::ios::in);
     // read positives into uint64 * array and prepare database
     reader.ReadPosNeg(ifs2, nu_trans, transaction_names,
-                      &nu_pos_total, bsh, &positive);
+                      &nu_pos_total, bsh, &positive, &pos_val, false);
     // positive_count = bsh->NuBlocks();
     ifs2.close();
   }
 
+  Functions4fisher functions(nu_trans, nu_pos_total, 1);
   Database<uint64> d(bsh, data, nu_trans, nu_items,
-                     positive, nu_pos_total,
+                     positive, pos_val, nu_pos_total,
                      max_item_in_transaction,
-                     item_names, transaction_names);
+                     item_names, transaction_names, functions);
   LampGraph<uint64> g(d);
   Lamp search(g);
 
@@ -114,6 +117,7 @@ TEST (LampTest, LoopSearchSmallTest) {
 
   uint64 * data = NULL;
   uint64 * positive = NULL;
+  double * pos_val = NULL;
   boost::array<int, 3> counters; // nu_bits, nu_items, max_item_in_transaction
   counters.assign(-1);
 
@@ -136,8 +140,8 @@ TEST (LampTest, LoopSearchSmallTest) {
 
   reader.ReadFiles(&bsh,
                    ifs1, &data, &nu_trans, &nu_items,
-                   ifs2, &positive, &nu_pos_total,
-                   item_names, transaction_names, &max_item_in_transaction);
+                   ifs2, &positive, &pos_val, &nu_pos_total,
+                   item_names, transaction_names, &max_item_in_transaction, false);
 
   ifs1.close();
   ifs2.close();
@@ -146,10 +150,11 @@ TEST (LampTest, LoopSearchSmallTest) {
   counters[1] = nu_items; 
   counters[2] = max_item_in_transaction;
 
+  Functions4fisher functions(nu_trans, nu_pos_total, 1);
   Database<uint64> d(bsh, data, nu_trans, nu_items,
-                     positive, nu_pos_total,
+                     positive, pos_val, nu_pos_total,
                      max_item_in_transaction,
-                     item_names, transaction_names);
+                     item_names, transaction_names, functions);
   LampGraph<uint64> g(d);
   Lamp search(g);
 

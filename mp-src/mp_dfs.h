@@ -49,6 +49,7 @@
 #include "random.h"
 #include "database.h"
 #include "lamp_graph.h"
+#include "functions/FunctionsSuper.h"
 
 namespace lamp_search {
 
@@ -93,18 +94,28 @@ class FixedSizeStack {
     size_ = 0;
     stack_ = new int[capacity];
   }
-  ~FixedSizeStack() { delete [] stack_; }
+
+  ~FixedSizeStack() {
+    delete [] stack_;
+  }
+
   void Push(int num) {
     stack_[size_] = num;
     size_++;
   }
+
   int Pop() {
     size_--;
     return stack_[size_];
   }
-  int Size() const { return size_; }
 
-  void Clear() { size_ = 0; }
+  int Size() const {
+    return size_;
+  }
+
+  void Clear() {
+    size_ = 0;
+  }
 
   friend std::ostream& operator<<(std::ostream & out, const FixedSizeStack & st);
 
@@ -144,10 +155,10 @@ class MP_LAMP {
 
   // read file, prepare database, broadcast to all procs
   // for h_==0
-  void InitDatabaseRoot(std::istream & is1, std::istream &is2);
-  void InitDatabaseRoot(std::istream & is1, int posnum);
+  void InitDatabaseRoot(std::istream & is1, std::istream &is2, FunctionsSuper & functions);
+  void InitDatabaseRoot(std::istream & is1, int posnum, FunctionsSuper & functions);
   // other
-  void InitDatabaseSub(bool pos);
+  void InitDatabaseSub(bool pos, FunctionsSuper & functions);
 
   void InitDatabaseCommon();
 
@@ -168,13 +179,11 @@ class MP_LAMP {
         count_(0),
         time_zone_(0),
         time_warp_(false),
-        not_empty_(false)
-    {
+        not_empty_(false) {
       accum_flag_ = new bool[k_echo_tree_branch];
     }
 
-    ~DTD()
-    {
+    ~DTD() {
       delete [] accum_flag_;
     }
 
@@ -550,8 +559,7 @@ class MP_LAMP {
     };
 
     StealState(int w, int z)
-        : w_(w), z_(z)
-    {
+        : w_(w), z_(z) {
       Init();
     }
 
@@ -720,9 +728,6 @@ class MP_LAMP {
     int pos_sup_num_;
   };
 
-  // hoge;
-  // modify lamp.cc also
-
   struct sigset_compare {
     sigset_compare(VariableLengthItemsetStack & ss) : ss_(ss) {}
 
@@ -863,7 +868,7 @@ class MP_LAMP {
 
     *sup_num = bsh_->Count(sup_buf_);
     *pos_sup_num = bsh_->AndCount(d_->PosNeg(), sup_buf_);
-    *pval = d_->PVal(*sup_num, *pos_sup_num);
+    *pval = d_->PVal(*sup_num, *pos_sup_num, sup_buf_, d_->PosVal());
   }
 
   //--------

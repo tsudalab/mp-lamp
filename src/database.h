@@ -46,6 +46,7 @@
 #include "sorted_itemset.h"
 #include "variable_length_itemset.h"
 #include "variable_bitset_array.h"
+#include "functions/FunctionsSuper.h"
 
 namespace lamp_search {
 
@@ -54,17 +55,17 @@ namespace lamp_search {
 
 class DatabaseParameter {
  public:
+
   DatabaseParameter() :
-      nu_trans_ (-1),
-      nu_items_ (-1),
-      nu_non_zero_trans_ (-1),
-      nu_non_zero_items_ (-1),
-      nu_pos_total_ (-1),
-      max_x_ (-1),
-      max_t_ (-1),
-      max_item_in_transaction_ (-1),
-      num_1_ (-1ll)
-  {
+      nu_trans_(-1),
+      nu_items_(-1),
+      nu_non_zero_trans_(-1),
+      nu_non_zero_items_(-1),
+      nu_pos_total_(-1),
+      max_x_(-1),
+      max_t_(-1),
+      max_item_in_transaction_(-1),
+      num_1_(-1ll) {
   }
 
   int nu_trans_;
@@ -105,7 +106,8 @@ class DatabaseReader {
   void ReadPosNeg(std::istream & is, int nu_trans,
                   std::vector< std::string > * trans_names,
                   int * nu_pos_total,
-                  const VariableBitsetHelper<Block> * bsh, Block ** positive);
+                  const VariableBitsetHelper<Block> * bsh, Block ** positive, double ** pos_val,
+                  bool reverse);
 
   bool ReadFirstPhaseLCM(std::istream & is,
                          int * nu_trans,
@@ -138,11 +140,12 @@ class DatabaseReader {
                  int * nu_trans,
                  int * nu_items,
                  std::istream & pos_file,
-                 Block ** positive,
+                 Block ** positive, double ** pos_val,
                  int * nu_pos_total,
                  std::vector< std::string > * item_names,
                  std::vector< std::string > * transaction_names,
-                 int * max_item_in_transaction);
+                 int * max_item_in_transaction,
+                 bool reverse);
 
   void ReadFiles(VariableBitsetHelper<Block> ** bsh,
                  std::istream & item_file,
@@ -159,10 +162,11 @@ class DatabaseReader {
                     int * nu_trans,
                     int * nu_items,
                     std::istream & pos_file,
-                    Block ** positive,
+                    Block ** positive, double ** pos_val,
                     int * nu_pos_total,
                     std::vector< std::string > * item_names,
-                    int * max_item_in_transaction);
+                    int * max_item_in_transaction,
+                    bool reverse);
 
   void ReadFilesLCM(VariableBitsetHelper<Block> ** bsh,
                     std::istream & item_file,
@@ -183,26 +187,43 @@ class Database {
            Block * item_array,
            std::size_t nu_trans,
            std::size_t nu_items,
-           Block * pos_array, std::size_t nu_pos_total,
+           Block * pos_array, double * pos_val, std::size_t nu_pos_total,
            int max_item_in_transaction,
            std::vector< std::string > * item_names,
-           std::vector< std::string > * trans_names);
+           std::vector< std::string > * trans_names,
+           FunctionsSuper & functions);
 
   ~Database();
 
   void Init();
 
-  const std::vector< std::string > * ItemNames() const { return item_names_; }
-  const std::string & NthItemName(std::size_t i) const { return (*ItemNames())[i]; }
+  const std::vector< std::string > * ItemNames() const {
+    return item_names_;
+  }
 
-  const std::vector< std::string > * TransactionNames() const { return transaction_names_; }
+  const std::string & NthItemName(std::size_t i) const {
+    return (*ItemNames())[i];
+  }
+
+  const std::vector< std::string > * TransactionNames() const {
+    return transaction_names_;
+  }
+
   const std::string & NthTransactionNames(std::size_t i) const {
     return (*TransactionNames())[i];
   }
 
-  int NuItems() const { return nu_items_; }
-  int NuTransaction() const { return nu_transactions_; }
-  int PosTotal() const { return nu_pos_total_; }
+  int NuItems() const {
+    return nu_items_;
+  }
+
+  int NuTransaction() const {
+    return nu_transactions_;
+  }
+
+  int PosTotal() const {
+    return nu_pos_total_;
+  }
 
   int NuReducedItems(int lambda) const;
   int FirstReducedItemInReverseLoop(int lambda, bool is_root_node,
@@ -212,29 +233,48 @@ class Database {
 
   // return largest int j < i such that j%nu_proc == rank
   // for first item in loop, set i == NuItems()
+
   static int NextItemInReverseLoop(bool is_root_node, int rank, int nu_proc, int prev) {
     // return largest int i < prev such that i%nu_proc == rank
     if (is_root_node) {
-      int i = prev - prev%nu_proc + rank;
-      if (i>=prev) i -= nu_proc;
+      int i = prev - prev % nu_proc + rank;
+      if (i >= prev) i -= nu_proc;
       return i;
-    }
-    else
-      return prev-1;
+    } else
+      return prev - 1;
   }
 
   std::ostream & DumpItems(std::ostream & out) const;
   std::ostream & DumpPosNeg(std::ostream & out) const;
   std::ostream & ShowInfo(std::ostream & out) const;
 
-  const VBH & VBSHelper() const { return *bsh_; }
+  const VBH & VBSHelper() const {
+    return *bsh_;
+  }
 
-  Block * NthData(std::size_t i) { return bsh_->N(data_, i); }
-  const Block * NthData(std::size_t i) const { return bsh_->N(data_, i); }
-  Block * PosNeg() const { return posneg_; }
+  Block * NthData(std::size_t i) {
+    return bsh_->N(data_, i);
+  }
 
-  Block * Data() { return data_; }
-  const Block * Data() const { return data_; }
+  const Block * NthData(std::size_t i) const {
+    return bsh_->N(data_, i);
+  }
+
+  Block * PosNeg() const {
+    return posneg_;
+  }
+
+  double * PosVal() const {
+    return pos_val_;
+  }
+
+  Block * Data() {
+    return data_;
+  }
+
+  const Block * Data() const {
+    return data_;
+  }
 
   //        pos   neg     freq
   //---------------------------
@@ -249,25 +289,62 @@ class Database {
   // support_all  == sup          == x      == group_sup
   // obs_t        == pos_sup      == t      == group_pos_sup
 
-  double PMin(int sup) const { return pmin_table_[sup]; }
-  double PMinLog(int sup) const { return pmin_log_table_[sup]; }
-  double PVal(int sup, int pos_sup) const { return pval_table_[sup * (max_t_+1) + pos_sup];}
+  double PMin(int sup) const {
+    return functions.funcF(sup);
+  }
 
-  // todo: prepare confound factor version
+  double PMinLog(int sup) const {
+    return log(PMin(sup));
+  }
 
-  double PMinCalLog(int sup) const;
-  double PMinCalLogSub(int sup) const;
-  double PValCalLog(int sup, int pos_sup) const;
-
-  void InitPMinLogTable();
-  void InitPValTableLog();
+  double PVal(int sup, int pos_sup, Block * dt, double * pos_val) const {
+    //	  return pval_table_[sup * (max_t_+1) + pos_sup];
+    double p = 1.01;
+    try {
+      std::vector<double> tgroup_x;
+      std::vector<double> tgroup_y;
+      if (!functions.isBinary()) {
+        std::size_t ptr = 0;
+        for (std::size_t i = 0; i < bsh_->NuBlocks(); i++) {
+          Block dtVal = dt[i];
+          Block mask = 1u;
+          for (int j = 0; j < VariableBitsetTraits<Block>::bits_per_block; j++) {
+            if ((dtVal & mask) > 0)
+              tgroup_x.push_back(pos_val[ptr]);
+            else
+              tgroup_y.push_back(pos_val[ptr]);
+            ptr++;
+            if (ptr == bsh_->NuBits())
+              break;
+            mask <<= 1u;
+          }
+        }
+        for (int i = bsh_->NuBits(); i < nu_transactions_; i++) {
+          tgroup_y.push_back(pos_val[i]);
+        }
+        std::sort(tgroup_x.begin(), tgroup_x.end());
+        std::sort(tgroup_y.begin(), tgroup_y.end());
+      }
+      p = functions.calPValue(sup, pos_sup, tgroup_x, tgroup_y);
+    } catch (...) {
+    }
+    return p;
+  }
 
   std::ostream & DumpPMinTable(std::ostream & out) const;
   std::ostream & DumpPValTable(std::ostream & out) const;
 
-  int MaxX() const { return max_x_; }
-  int MaxT() const { return max_t_; }
-  int MaxItemInTransaction() const { return max_item_in_transaction_; }
+  int MaxX() const {
+    return max_x_;
+  }
+
+  int MaxT() const {
+    return max_t_;
+  }
+
+  int MaxItemInTransaction() const {
+    return max_item_in_transaction_;
+  }
 
   long long int Count1() const;
   double Density() const;
@@ -277,16 +354,27 @@ class Database {
 
   void PrepareItemVals();
 
-  const std::vector<ItemInfo> & GetItemInfo() const { return item_info_; }
+  const std::vector<ItemInfo> & GetItemInfo() const {
+    return item_info_;
+  }
 
   int PrepareReducedList(int lambda);
   std::vector<int> & ReducedList(int lambda);
 
-  const std::vector<int> & SupHist() const { return sup_hist_; }
-  const std::vector<int> & SupCumHist() const { return sup_cum_hist_; }
+  const std::vector<int> & SupHist() const {
+    return sup_hist_;
+  }
+
+  const std::vector<int> & SupCumHist() const {
+    return sup_cum_hist_;
+  }
 
   int NuAllZeroTrans() const;
   int NuAllZeroItems() const;
+
+  const bool isReverse() const {
+    return functions.isReverse();
+  }
 
   void SetValuesForTest(int nu_item, int nu_transaction, int nu_pos_total);
 
@@ -300,7 +388,7 @@ class Database {
   int nu_transactions_;
   std::vector< std::string > * transaction_names_;
   int nu_pos_total_;
-  
+
   // todo: prepare multiple data_ for confounder
 
   Block * data_;
@@ -308,6 +396,7 @@ class Database {
 
   bool has_positives_;
   Block * posneg_;
+  double * pos_val_;
   int max_t_;
 
   int max_item_in_transaction_;
@@ -316,16 +405,6 @@ class Database {
   // these are following lampeler variable naming. no trailing _. be careful
   // double siglev;
 
-  // reused during PVal calculation 
-  double * pval_cal_buf; // originally pval_table
-  double * pval_log_cal_buf; // originally pval_table
-  // ----
-
-  // stores calculated pmin value
-  std::vector<double> pmin_table_;
-  std::vector<double> pmin_log_table_;
-  std::vector<double> pval_table_;
-
   // support histogram
   std::vector<int> sup_hist_;
   std::vector<int> sup_cum_hist_;
@@ -333,6 +412,8 @@ class Database {
   std::vector<bool> reduced_item_list_prepared_;
 
   std::vector<ItemInfo> item_info_; // list of item id sorted by pmin (sup)
+
+  FunctionsSuper & functions; // the function to calculate P-value
 };
 
 } // namespace lamp_search

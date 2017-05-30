@@ -40,6 +40,7 @@
 #include "utils.h"
 #include "lcm_graph_vba.h"
 #include "lcm_dfs_vba.h"
+#include "functions/Functions4fisher.h"
 
 DECLARE_bool(show_progress); // "show progress at each iteration"
 
@@ -49,7 +50,8 @@ TEST (LCM_DFS_LAMP_VBA_Test, SmallSearchTest) {
   std::ifstream ifs1, ifs2;
   ifs1.open("../../../samples/sample_data/sample_item.csv");
   ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
-  TableVBA<uint64> t(ifs1, ifs2);
+  Functions4fisher functions(1);
+  TableVBA<uint64> t(ifs1, ifs2, functions);
   ifs1.close();
   ifs2.close();
 
@@ -65,7 +67,8 @@ TEST (LCM_DFS_LAMP_VBA_Test, SmallSingleSearchTest) {
   std::ifstream ifs1, ifs2;
   ifs1.open("../../../samples/sample_data/sample_item.csv");
   ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
-  TableVBA<uint64> t(ifs1, ifs2);
+  Functions4fisher functions(1);
+  TableVBA<uint64> t(ifs1, ifs2, functions);
   ifs1.close();
   ifs2.close();
 

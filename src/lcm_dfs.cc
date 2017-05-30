@@ -114,8 +114,7 @@ LCM_DFS::LCM_DFS(const LCM_Graph & g) :
     g_ (g),
     top_k_ (g.GetTable().GetItemInfo(), FLAGS_topk),
     final_closed_set_num_ (0ll),
-    final_support_ (0)
-{
+    final_support_ (0) {
   assert(FLAGS_topk > 0);
 }
 
@@ -408,8 +407,7 @@ void LCM_DFS::LAMP() {
                 << "\n";
     }
     closed_set_num_2nd = closed_set_num_;
-  }
-  else {
+  } else {
     closed_set_num_2nd = 0ll;
   }
 

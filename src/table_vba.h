@@ -43,6 +43,7 @@
 #include "utils.h"
 #include "sorted_itemset.h"
 #include "variable_bitset_array.h"
+#include "functions/FunctionsSuper.h"
 
 namespace lamp_search {
 
@@ -53,31 +54,59 @@ class TableVBA {
   typedef VariableBitset<Block> VBS;
   typedef VariableBitsetArray<Block> VBA;
 
-  TableVBA(std::istream & item_file, std::istream & posneg_file);
+  TableVBA(std::istream & item_file, std::istream & posneg_file, FunctionsSuper & functions);
   ~TableVBA();
 
   void ReadItems(std::istream & is);
   void ReadPosNeg(std::istream & is);
 
-  const std::vector< std::string > & ItemNames() const { return item_names_; }
-  const std::string & NthItemName(std::size_t i) const { return ItemNames()[i]; }
+  const std::vector< std::string > & ItemNames() const {
+    return item_names_;
+  }
 
-  int NuItems() const { return nu_items_; }
-  int NuTransaction() const { return nu_transactions_; }
-  int PosTotal() const { return nu_pos_total_; }
+  const std::string & NthItemName(std::size_t i) const {
+    return ItemNames()[i];
+  }
+
+  int NuItems() const {
+    return nu_items_;
+  }
+
+  int NuTransaction() const {
+    return nu_transactions_;
+  }
+
+  int PosTotal() const {
+    return nu_pos_total_;
+  }
 
   std::ostream & DumpItems(std::ostream & out) const;
   std::ostream & DumpPosNeg(std::ostream & out) const;
   std::ostream & ShowInfo(std::ostream & out) const;
 
-  const VariableBitsetHelper<Block> & VBSHelper() const { return *bsh; }
+  const VariableBitsetHelper<Block> & VBSHelper() const {
+    return *bsh;
+  }
 
-  Block * NthData(std::size_t i) { return data_->N(i); }
-  const Block * NthData(std::size_t i) const { return data_->N(i); }
-  VBS * PosNeg() const { return posneg_; }
+  Block * NthData(std::size_t i) {
+    return data_->N(i);
+  }
 
-  VBA * Data() { return data_; }
-  const VBA * Data() const { return data_; }
+  const Block * NthData(std::size_t i) const {
+    return data_->N(i);
+  }
+
+  VBS * PosNeg() const {
+    return posneg_;
+  }
+
+  VBA * Data() {
+    return data_;
+  }
+
+  const VBA * Data() const {
+    return data_;
+  }
 
   //        pos   neg     freq
   //---------------------------
@@ -92,18 +121,26 @@ class TableVBA {
   // support_all  == sup          == x      == group_sup
   // obs_t        == pos_sup      == t      == group_pos_sup
 
-  double PMin(int sup) const { return pmin_table_[sup]; }
-  double PMinLog(int sup) const { return pmin_log_table_[sup]; }
-  double PVal(int sup, int pos_sup) const { return pval_table_[sup * (max_t_+1) + pos_sup];}
+  double PMin(int sup) const {
+    return pmin_table_[sup];
+  }
+
+  double PMinLog(int sup) const {
+    return pmin_log_table_[sup];
+  }
+
+  double PVal(int sup, int pos_sup) const {
+    return pval_table_[sup * (max_t_ + 1) + pos_sup];
+  }
 
   // todo: prepare confound factor version
   // double PVal2(int sup, int pos_sup) const; // temp
-  double PMinCal(int sup) const;
-  double PMinCalSub(int sup) const;
+  //  double PMinCal(int sup) const;
+  //  double PMinCalSub(int sup) const;
   double PValCal(int sup, int pos_sup) const;
 
-  double PMinCalLog(int sup) const;
-  double PMinCalLogSub(int sup) const;
+  //  double PMinCalLog(int sup) const;
+  //  double PMinCalLogSub(int sup) const;
   double PValCalLog(int sup, int pos_sup) const;
 
   void InitPMinTable();
@@ -114,12 +151,23 @@ class TableVBA {
   std::ostream & DumpPMinTable(std::ostream & out) const;
   std::ostream & DumpPValTable(std::ostream & out) const;
 
-  int MaxX() const { return max_x_; }
-  int MaxT() const { return max_t_; }
-  int MaxItemInTransaction() const { return max_item_in_transaction_; }
+  int MaxX() const {
+    return max_x_;
+  }
+
+  int MaxT() const {
+    return max_t_;
+  }
+
+  int MaxItemInTransaction() const {
+    return max_item_in_transaction_;
+  }
 
   // for test
-  void SetSigLev(double d) { siglev = d; }
+
+  void SetSigLev(double d) {
+    siglev = d;
+  }
 
   void PrepareItemVals();
 
@@ -128,7 +176,9 @@ class TableVBA {
     double v; // value
   };
 
-  const std::vector<ItemInfo> & GetItemInfo() const { return item_info_; }
+  const std::vector<ItemInfo> & GetItemInfo() const {
+    return item_info_;
+  }
 
   void SetValuesForTest(int nu_item, int nu_transaction, int nu_pos_total);
 
@@ -139,7 +189,7 @@ class TableVBA {
   int nu_transactions_;
   std::vector< std::string > transaction_names_;
   int nu_pos_total_;
-  
+
   VBH * bsh; // biset helper
   VBA * data_;
   // todo: prepare multiple data_ for confounder
@@ -153,11 +203,6 @@ class TableVBA {
   // these are following lampeler variable naming. no trailing _. be careful
   double siglev;
 
-  // reused during PVal calculation 
-  double * pval_cal_buf; // originally pval_table
-  double * pval_log_cal_buf; // originally pval_table
-  // ----
-
   // stores calculated pmin value
   std::vector<double> pmin_table_;
   std::vector<double> pmin_log_table_;
@@ -168,11 +213,16 @@ class TableVBA {
   std::vector<PValCache_t> pmin_cache_;
 
   std::vector<ItemInfo> item_info_; // list of item id sorted by pmin (sup)
+
+  FunctionsSuper & functions; // the function to calculate P-value
+		
+  std::vector<double> empty;
 };
 
 } // namespace lamp_search
 
 #endif // _LAMP_SEARCH_TABLE_VBA_H_
+
 /* Local Variables:  */
 /* compile-command: "scons -u" */
 /* End:              */

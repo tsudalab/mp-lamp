@@ -38,6 +38,7 @@
 #include "utils.h"
 #include "lcm_graph.h"
 #include "lcm_dfs.h"
+#include "functions/Functions4fisher.h"
 
 using namespace lamp_search;
 
@@ -45,7 +46,8 @@ TEST (LCM_DFSTest, TopKInitTest) {
   std::ifstream ifs1, ifs2;
   ifs1.open("../../../samples/sample_data/sample_item.csv");
   ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
-  Table t(ifs1, ifs2);
+  Functions4fisher functions(1);
+  Table t(ifs1, ifs2, functions);
   ifs1.close();
   ifs2.close();
   LCM_Graph g(t);
@@ -67,7 +69,8 @@ TEST (LCM_DFSTest, TopKInitInsert) {
   std::ifstream ifs1, ifs2;
   ifs1.open("../../../samples/sample_data/sample_item.csv");
   ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
-  Table t(ifs1, ifs2);
+  Functions4fisher functions(1);
+  Table t(ifs1, ifs2, functions);
   ifs1.close();
   ifs2.close();
   LCM_Graph g(t);
@@ -118,7 +121,8 @@ TEST (LCM_DFSTest, SmallSearchTest) {
   std::ifstream ifs1, ifs2;
   ifs1.open("../../../samples/sample_data/sample_item.csv");
   ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
-  Table t(ifs1, ifs2);
+  Functions4fisher functions(1);
+  Table t(ifs1, ifs2, functions);
   ifs1.close();
   ifs2.close();
   LCM_Graph g(t);

@@ -58,8 +58,7 @@ namespace lamp_search {
 
 template<typename Block>
 LCM_Graph_VBA<Block>::LCM_Graph_VBA(const TableVBA<Block> & table) :
-    t_ (table)
-{
+    t_ (table) {
   bsh = new VariableBitsetHelper<Block>(t_.NuTransaction());
   support_pre = bsh->New();
   support_buf = bsh->New();
@@ -128,7 +127,10 @@ bool LCM_Graph_VBA<Block>::PPCExtension(const SortedItemSet & items,
   int ii = 0;
   for (int i=0 ; i<new_item ; i++) {
     // skip existing item
-    if (items.Size() > ii && items[ii] == i) { ii++; continue; }
+    if (items.Size() > ii && items[ii] == i) {
+      ii++;
+      continue;
+    }
 
     // if sup is subset of t_.Data()->N(i), not PPCExtension
     if ( t_.Data()->IsSubsetOf(sup, t_.Data()->N(i))) return false;
@@ -139,7 +141,10 @@ bool LCM_Graph_VBA<Block>::PPCExtension(const SortedItemSet & items,
 
   for (int i=new_item+1 ; i<t_.NuItems() ; i++) { // calculating closure
     // skip existing item
-    if (items.Size() > ii && items[ii] == i) { ii++; continue; }
+    if (items.Size() > ii && items[ii] == i) {
+      ii++;
+      continue;
+    }
 
     // if closure_buf.none(), sup is subset of t_.Data()->N(i)
     if ( t_.Data()->IsSubsetOf(sup, t_.Data()->N(i))) {

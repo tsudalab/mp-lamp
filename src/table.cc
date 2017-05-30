@@ -74,48 +74,50 @@ int CountLines(std::istream & is) {
 
 namespace lamp_search {
 
-Table::Table(std::istream & item_file, std::istream & posneg_file) :
+Table::Table(std::istream & item_file, std::istream & posneg_file, FunctionsSuper & functions) :
     nu_items_ (0),
     nu_transactions_ (0),
     data_ (0), // null
     posneg_ (0), // null
     max_x_ (-1),
-    max_t_ (-1)
-{
+    max_t_ (-1),
+	functions(functions) {
   ReadItems(item_file);
   ReadPosNeg(posneg_file);
 
   SetSigLev(FLAGS_a); // double
 
-  pval_cal_buf = new double[NuTransaction()];
+  functions.setAllSize(NuTransaction());
+  functions.setN1(PosTotal());
   PrepareItemVals();
 }
 
 Table::~Table() {
   if (data_) delete data_;
   if (posneg_) delete posneg_;
-
-  delete pval_cal_buf;
 }
 
 void Table::SetValuesForTest(int nu_item, int nu_transaction, int nu_pos_total) {
   nu_items_ = nu_item;
   nu_transactions_ = nu_transaction;
   nu_pos_total_ = nu_pos_total;
-  pval_cal_buf = new double[NuTransaction()];
 
   // should be given as paramters?
   max_x_ = nu_transaction;
   max_t_ = nu_pos_total;
 
+  functions.setAllSize(NuTransaction());
+  functions.setN1(PosTotal());
   // InitPMinTable();
   // InitPValTable();
 }
 
 void Table::InitPMinTable() {
-  pmin_table_.resize(max_x_+1);
-  for (int i=0;i<=max_x_;i++)
-    pmin_table_[i] = PMinCal(i);
+  pmin_table_.resize(max_x_ + 1);
+  pmin_table_[0] = 1.0;
+  for (int i = 1; i <= max_x_; i++)
+    //    pmin_table_[i] = PMinCal(i);
+    pmin_table_[i] = functions.funcF(i);
 }
 
 std::ostream & Table::DumpPMinTable(std::ostream & out) const {
@@ -236,7 +238,7 @@ void Table::ReadPosNeg(std::istream & is) {
   boost::char_separator<char> sep(", ");
 
   int nu_lines = CountLines(is);
-  assert( nu_transactions_ = nu_lines - 1 );
+  assert( nu_transactions_ == nu_lines - 1 );
   
   {
     std::getline(is, line); // skip 1st line
@@ -303,30 +305,6 @@ std::ostream & Table::ShowInfo(std::ostream & out) const {
   return out;
 }
 
-double Table::PMinCal(int sup) const {
-  if (sup == 0) return 1.0;
-
-  double minp = 1.0;
-  //if (sup==0) return minp; // hacked. does this work?
-  
-  { // for (int i = 0; i < confsize; ++i
-    minp *= PMinCalSub(sup);
-  }
-  return minp;
-}
-
-double Table::PMinCalSub(int sup) const {
-  double minp_i = 1.0;
-  //if (sup==0) return minp_i; // hacked. does this work?
-
-  unsigned int uplim = sup;
-  if (sup > PosTotal()) uplim = PosTotal();
-  for (unsigned int i = 0; i < uplim; ++i) {
-    minp_i *= double(PosTotal() - i)/double(NuTransaction() - i);
-  }
-  return minp_i;
-}
-
 //        pos   neg     freq
 //---------------------------
 // item |  t   (x-t)  |   x
@@ -341,77 +319,7 @@ double Table::PMinCalSub(int sup) const {
 // obs_t        == pos_sup      == t      == group_pos_sup
 
 double Table::PValCal(int sup, int pos_sup) const {
-  int uplim = sup;
-  if (PosTotal() < uplim) uplim = PosTotal();
-  int lowlim = 0;
-  if ((NuTransaction() - PosTotal() - sup) < 0) lowlim = sup - NuTransaction() + PosTotal();
-
-  // calculate probability of each table
-
-  // pval_tmp_table is prepared as a member variable in class Graph
-  // maybe doing zero clear is safer
-
-  // init pval_cal_buf here?
-  for (int ti=0;ti<NuTransaction();ti++)
-    pval_cal_buf[ti] = 0.0;
-
-  double p1 = PMin(sup);
-  if (p1 > siglev) return 1.001; // maybe not needed
-
-  // std::cout << "sup=" << sup
-  //           << "\tpostotal=" << PosTotal()
-  //           << "\tp1=" << p1
-  //           << std::endl;
-
-  if (sup > PosTotal()){
-    for (int j = 0.0; j < sup - PosTotal(); ++j){
-      p1 = p1 * (sup - j) / double(j + 1);
-    }
-  }
-  double p2 = 1.0;
-  pval_cal_buf[uplim - lowlim] = p1;
-  // std::cout << "uplim-lowlim=" << uplim-lowlim
-  //           << "\tpval_cal_buf[uplim-lowlim]=" << pval_cal_buf[uplim-lowlim] << std::endl;
-  int neg_size = NuTransaction() - PosTotal();
-
-  double p1p2 = p1 * p2;
-  // std::cout << "uplim=" << uplim
-  //           << "\tlowlim=" << lowlim
-  //           << "\tpostotal=" << PosTotal()
-  //           << "\tp1=" << p1
-  //           << "\tp2=" << p2
-  //           << std::endl;
-  
-  for (int j = uplim - 1; j >= lowlim; --j) {
-    // std::cout << "\tj=" << j;
-    // p1 = p1 * double(j + 1) / double(PosTotal() - j); // c(n1, a);
-    // p2 = p2 * double(neg_size - sup + j + 1) / double(sup - j); // c(n1+n0, x);
-    // std::cout << "\tp1=" << p1
-    //           << "\tp2=" << p2;
-    // assert(!std::isnan(p1*p2));
-    // //pval_cal_buf[j-lowlim] = p1 * p2;
-
-    p1p2 *= double(j + 1) / double(PosTotal() - j);
-    p1p2 *= double(neg_size - sup + j + 1) / double(sup - j);
-
-    // std::cout << "\tp1p2=" << p1p2 << std::endl;
-    pval_cal_buf[j-lowlim] = p1p2;
-  }
-  
-  double p = 0.0;
-  int t = lowlim;
-  while (t <= uplim){
-    if (t >= pos_sup){
-      double p_i = 1.0;
-      // std::cout << "t-lowlim=" << t-lowlim
-      //           << "\tpval_cal_buf[t-lowlim]=" << pval_cal_buf[t-lowlim] << std::endl;
-      // assert(!std::isnan(pval_cal_buf[t - lowlim]));
-      p_i = p_i * pval_cal_buf[t - lowlim];
-      p += p_i;
-    }
-    // update t_list
-    t += 1;
-  }
+  double p = functions.calPValue(sup, pos_sup, empty, empty);
   return p;
 }
 
@@ -452,11 +360,11 @@ void Table::PrepareItemVals() {
 
   std::sort(item_info_.begin(), item_info_.end() );  
   double best_pval = 1.0;
-  int best_pval_item = -1;
+  // int best_pval_item = -1;
   for (std::size_t i=0 ; i < (std::size_t)NuItems() ; i++) {
     if (item_info_[i].pval < best_pval) {
       best_pval = item_info_[i].pval;
-      best_pval_item = i;
+      // best_pval_item = i;
     }
   }  
 }

@@ -45,6 +45,10 @@
 #include "timer.h"
 #include "lcm_graph_vba.h"
 #include "lcm_dfs_vba.h"
+#include "functions/Functions4chi.h"
+#include "functions/Functions4fisher.h"
+#include "functions/Functions4u_test.h"
+#include "functions/FunctionsSuper.h"
 
 #include "mp_dfs.h"
 
@@ -69,10 +73,17 @@ DEFINE_bool(straw1, false, "use Strawman1 for comparison");
 
 DEFINE_int32(sleep, 0, "sleep in the beinning (for debugger attach)");
 
+DEFINE_string(alternative, "greater", "the alternative hypothesis ('two.sided', 'greater' or 'less')");
+DEFINE_string(p, "fisher", "method of statistical hypothesis test ('chi' or 'fisher' or 'u_test')");
+
 using namespace lamp_search;
 
+/**
+ * Run multiple testing correction with MPI
+ */
 int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
+  google::SetUsageMessage("MP-LAMP: Massively-Parallel Limitless-Arity Multiple-testing Procedure");
   google::ParseCommandLineFlags(&argc, &argv, true);
 
   if (FLAGS_sleep > 0) {
@@ -108,6 +119,32 @@ int main(int argc, char **argv) {
       return 1;
     }
 
+    int alternative = -1;
+    if (FLAGS_alternative == "two.sided") {
+      alternative = 0;
+    } else if (FLAGS_alternative == "greater") {
+      alternative = 1;
+    } else if (FLAGS_alternative == "less") {
+      alternative = -1;
+    } else {
+      std::cout << "--alternative must be 'two.sided', 'greater' or 'less'" << std::endl;
+      MPI_Finalize();
+      return 1;
+    }
+
+    FunctionsSuper * functions;
+    if (FLAGS_p == "fisher") {
+      functions = new Functions4fisher(alternative);
+    } else if (FLAGS_p == "chi") {
+      functions = new Functions4chi(alternative);
+    } else if (FLAGS_p == "u_test") {
+      functions = new Functions4u_test(alternative);
+    } else {
+      std::cout << "--p must be 'chi' or 'fisher'" << std::endl;
+      MPI_Finalize();
+      return 1;
+    }
+
     // todo: prepare clean exit for wrong options
     //       need broadcast for finish
     //       MPI_Bcast flag seems simple
@@ -120,24 +157,22 @@ int main(int argc, char **argv) {
 
     Timer::GetInstance()->Start();
 
-    MP_LAMP * search;
-    try
-    {
+    MP_LAMP * search = NULL;
+    try {
       // (int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m)
       //MP_LAMP search(rank, nu_proc, FLAGS_n, FLAGS_n_is_ms, FLAGS_w, FLAGS_l, FLAGS_m);
       search = new MP_LAMP(rank, nu_proc, FLAGS_n, FLAGS_n_is_ms, FLAGS_w, FLAGS_l, FLAGS_m);
-    }
-    catch(std::bad_alloc& exc)
-    {
+    } catch(std::bad_alloc& exc) {
       std::cout << "MP_LAMP constructor at rank: " << rank
                 << "\tbad_alloc caught: " << exc.what() << std::endl;
-      delete search;
+      if (search != NULL) delete search;
+      delete functions;
       MPI_Abort(MPI_COMM_WORLD, 1);
+      MPI_Finalize();
       return 1;
     }
 
-    try
-    {
+    try {
       if (FLAGS_pos != "") {
         if (rank==0) {
           std::ifstream item_file, positive_file;
@@ -148,11 +183,11 @@ int main(int argc, char **argv) {
           if (positive_file.fail())
             throw std::runtime_error(std::string("file not found: ") + FLAGS_pos);
 
-          search->InitDatabaseRoot(item_file, positive_file);
+          search->InitDatabaseRoot(item_file, positive_file, *functions);
           item_file.close();
           positive_file.close();
         } else {
-          search->InitDatabaseSub(true);
+          search->InitDatabaseSub(true, *functions);
         }
       } else {
         if (rank==0) {
@@ -161,50 +196,49 @@ int main(int argc, char **argv) {
           if (item_file.fail())
             throw std::runtime_error(std::string("file not found: ") + FLAGS_item);
 
-          search->InitDatabaseRoot(item_file, FLAGS_posnum);
+          search->InitDatabaseRoot(item_file, FLAGS_posnum, *functions);
           item_file.close();
         } else {
-          search->InitDatabaseSub(false);
+          search->InitDatabaseSub(false, *functions);
         }
       }
-    }
-    catch(std::bad_alloc& exc)
-    {
+    } catch(std::bad_alloc& exc) {
       std::cout << "MP_LAMP InitDatabase at rank: " << rank
                 << "\tbad_alloc caught: " << exc.what() << std::endl;
       delete search;
+      delete functions;
       MPI_Abort(MPI_COMM_WORLD, 1);
+      MPI_Finalize();
       return 1;
-    }
-    catch(std::runtime_error & err)
-    {
+    } catch(std::runtime_error & err) {
       std::cout << err.what() << std::endl;
       delete search;
+      delete functions;
       MPI_Abort(MPI_COMM_WORLD, 1);
+      MPI_Finalize();
       return 1;
     }
 
     if (rank==0) search->PrintDBInfo(std::cout);
 
     search_start_time = Timer::GetInstance()->Elapsed();
-    try
-    {
+    try {
       if (FLAGS_straw1) search->SearchStraw1();
       else search->Search();
-    }
-    catch(std::bad_alloc& exc)
-    {
+    } catch(std::bad_alloc& exc) {
       std::cout << "MP_LAMP Search at rank: " << rank
                 << "\tbad_alloc caught: " << exc.what() << std::endl;
       delete search;
+      delete functions;
       MPI_Abort(MPI_COMM_WORLD, 1);
+      MPI_Finalize();
       return 1;
-    }
-    catch(std::runtime_error & err)
-    {
+    } catch(std::runtime_error & err) {
       std::cout << err.what() << std::endl;
       delete search;
+      delete functions;
       MPI_Abort(MPI_COMM_WORLD, 1);
+      MPI_Finalize();
       return 1;
     }
     search_end_time = Timer::GetInstance()->Elapsed();
@@ -225,6 +259,7 @@ int main(int argc, char **argv) {
     search->ClearTasks();
     MPI_Barrier( MPI_COMM_WORLD );
     delete search;
+    delete functions;
   }
 
   MPI_Finalize();

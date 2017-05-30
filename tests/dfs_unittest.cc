@@ -41,6 +41,7 @@
 
 #include "graph.h"
 #include "dfs.h"
+#include "functions/Functions4fisher.h"
 
 using namespace lamp_search;
 
@@ -60,7 +61,8 @@ TEST (DFSTest, RandomTableTest) {
   std::ifstream ifs1, ifs2;
   ifs1.open("../../../samples/sample_data/sample_item.csv");
   ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
-  Table t(ifs1, ifs2);
+  Functions4fisher functions(1);
+  Table t(ifs1, ifs2, functions);
   ifs1.close();
   ifs2.close();
   Graph g(t);
@@ -73,7 +75,8 @@ TEST (DFSTest, TopKInitTest) {
   std::ifstream ifs1, ifs2;
   ifs1.open("../../../samples/sample_data/sample_item.csv");
   ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
-  Table t(ifs1, ifs2);
+  Functions4fisher functions(1);
+  Table t(ifs1, ifs2, functions);
   ifs1.close();
   ifs2.close();
   Graph g(t);
@@ -95,7 +98,8 @@ TEST (DFSTest, TopKInitInsert) {
   std::ifstream ifs1, ifs2;
   ifs1.open("../../../samples/sample_data/sample_item.csv");
   ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
-  Table t(ifs1, ifs2);
+  Functions4fisher functions(1);
+  Table t(ifs1, ifs2, functions);
   ifs1.close();
   ifs2.close();
   Graph g(t);
@@ -151,7 +155,8 @@ TEST (DFSTest, SmallSearchTest) {
   std::ifstream ifs1, ifs2;
   ifs1.open("../../../samples/sample_data/sample_item.csv");
   ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
-  Table t(ifs1, ifs2);
+  Functions4fisher functions(1);
+  Table t(ifs1, ifs2, functions);
   ifs1.close();
   ifs2.close();
   Graph g(t);

@@ -43,23 +43,37 @@
 
 #include "utils.h"
 #include "sorted_itemset.h"
+#include "functions/FunctionsSuper.h"
 
 namespace lamp_search {
 
 class Table {
  public:
-  Table(std::istream & item_file, std::istream & posneg_file);
+  Table(std::istream & item_file, std::istream & posneg_file, FunctionsSuper & functions);
   ~Table();
 
   void ReadItems(std::istream & is);
   void ReadPosNeg(std::istream & is);
 
-  const std::vector< std::string > & ItemNames() const { return item_names_; }
-  const std::string & NthItemName(std::size_t i) const { return ItemNames()[i]; }
+  const std::vector< std::string > & ItemNames() const {
+    return item_names_;
+  }
 
-  int NuItems() const { return nu_items_; }
-  int NuTransaction() const { return nu_transactions_; }
-  int PosTotal() const { return nu_pos_total_; }
+  const std::string & NthItemName(std::size_t i) const {
+    return ItemNames()[i];
+  }
+
+  int NuItems() const {
+    return nu_items_;
+  }
+
+  int NuTransaction() const {
+    return nu_transactions_;
+  }
+
+  int PosTotal() const {
+    return nu_pos_total_;
+  }
 
   std::ostream & DumpItems(std::ostream & out) const;
   std::ostream & DumpPosNeg(std::ostream & out) const;
@@ -68,6 +82,7 @@ class Table {
   const boost::dynamic_bitset<> & NthData(std::size_t i) const {
     return (*data_)[i];
   }
+
   const boost::dynamic_bitset<> & PosNeg() const {
     return *posneg_;
   }
@@ -85,13 +100,16 @@ class Table {
   // support_all  == sup          == x      == group_sup
   // obs_t        == pos_sup      == t      == group_pos_sup
 
-  double PMin(int sup) const { return pmin_table_[sup]; }
-  double PVal(int sup, int pos_sup) const { return pval_table_[sup * (max_t_+1) + pos_sup];}
+  double PMin(int sup) const {
+    return pmin_table_[sup];
+  }
+
+  double PVal(int sup, int pos_sup) const {
+    return pval_table_[sup * (max_t_ + 1) + pos_sup];
+  }
 
   // todo: prepare confound factor version
   // double PVal2(int sup, int pos_sup) const; // temp
-  double PMinCal(int sup) const;
-  double PMinCalSub(int sup) const;
   double PValCal(int sup, int pos_sup) const;
 
   void InitPMinTable();
@@ -100,12 +118,23 @@ class Table {
   std::ostream & DumpPMinTable(std::ostream & out) const;
   std::ostream & DumpPValTable(std::ostream & out) const;
 
-  int MaxX() const { return max_x_; }
-  int MaxT() const { return max_t_; }
-  int MaxItemInTransaction() const { return max_item_in_transaction_; }
+  int MaxX() const {
+    return max_x_;
+  }
+
+  int MaxT() const {
+    return max_t_;
+  }
+
+  int MaxItemInTransaction() const {
+    return max_item_in_transaction_;
+  }
 
   // for test
-  void SetSigLev(double d) { siglev = d; }
+
+  void SetSigLev(double d) {
+    siglev = d;
+  }
 
   void PrepareItemVals();
 
@@ -114,7 +143,9 @@ class Table {
     double v; // value
   };
 
-  const std::vector<ItemInfo> & GetItemInfo() const { return item_info_; }
+  const std::vector<ItemInfo> & GetItemInfo() const {
+    return item_info_;
+  }
 
   void SetValuesForTest(int nu_item, int nu_transaction, int nu_pos_total);
 
@@ -125,7 +156,7 @@ class Table {
   int nu_transactions_;
   std::vector< std::string > transaction_names_;
   int nu_pos_total_;
-  
+
   //std::vector< boost::dynamic_bitset<> > v(10, boost::dynamic_bitset<>(3));
   std::vector< boost::dynamic_bitset<> > * data_;
   // std::vector< boost::dynamic_bitset<> > ** data_; // for confsize > 1
@@ -139,10 +170,6 @@ class Table {
   // these are following lampeler variable naming. no trailing _. be careful
   double siglev;
 
-  // reused during PVal calculation 
-  double * pval_cal_buf; // originally pval_table
-  // ----
-
   // stores calculated pmin value
   std::vector<double> pmin_table_;
   std::vector<double> pval_table_;
@@ -152,11 +179,17 @@ class Table {
   std::vector<PValCache_t> pmin_cache_;
 
   std::vector<ItemInfo> item_info_; // list of item id sorted by pmin (sup)
+
+		
+  FunctionsSuper & functions; // the function to calculate P-value
+		
+  std::vector<double> empty;
 };
 
 } // namespace lamp_search
 
 #endif // _LAMP_SEARCH_TABLE_H_
+
 /* Local Variables:  */
 /* compile-command: "scons -u" */
 /* End:              */

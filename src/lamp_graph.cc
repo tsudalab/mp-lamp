@@ -58,8 +58,7 @@ namespace lamp_search {
 
 template<typename Block>
 LampGraph<Block>::LampGraph(const Database<Block> & data) :
-    d_ (data), bsh_ ( &(data.VBSHelper()) )
-{
+    d_ (data), bsh_ ( &(data.VBSHelper()) ) {
   //bsh_ = new VariableBitsetHelper<Block>(d_.NuTransaction());
   support_pre_ = bsh_->New();
   support_buf_ = bsh_->New();
@@ -122,7 +121,10 @@ bool LampGraph<Block>::PPCExtension(VariableLengthItemsetStack * st,
   int ii = 0;
   for (int i=0 ; i<new_item ; i++) {
     // skip existing item
-    if (st->GetItemNum(items) > ii && st->GetNthItem(items, ii) == i) { ii++; continue; }
+    if (st->GetItemNum(items) > ii && st->GetNthItem(items, ii) == i) {
+      ii++;
+      continue;
+    }
 
     // if sup is subset of d_.Data()->N(i), not PPCExtension
     if ( bsh_->IsSubsetOf( sup, bsh_->N(d_.Data(), i) ) ) return false;
@@ -133,7 +135,10 @@ bool LampGraph<Block>::PPCExtension(VariableLengthItemsetStack * st,
 
   for (int i=new_item+1 ; i<d_.NuItems() ; i++) { // calculating closure
     // skip existing item
-    if (st->GetItemNum(items) > ii && st->GetNthItem(items, ii) == i) { ii++; continue; }
+    if (st->GetItemNum(items) > ii && st->GetNthItem(items, ii) == i) {
+      ii++;
+      continue;
+    }
 
     // if closure_buf.none(), sup is subset of t_.Data()->N(i)
     if ( bsh_->IsSubsetOf( sup, bsh_->N(d_.Data(), i) ) ) {

@@ -66,8 +66,7 @@ boost::dynamic_bitset<> closure_buf; // buffer for closure calculation
 namespace lamp_search {
 
 LCM_Graph::LCM_Graph(const Table & table) :
-    t_ (table)
-{
+    t_ (table) {
   support_pre.resize(t_.NuTransaction(), true); // initialize buffer
   support_buf.resize(t_.NuTransaction(), true); // initialize buffer
 

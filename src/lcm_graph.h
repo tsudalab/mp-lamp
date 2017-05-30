@@ -53,7 +53,7 @@ class LCM_Graph {
   LCM_Graph(const Table & t);
   ~LCM_Graph();
 
-  const Table & GetTable() const {return t_; }
+  const Table & GetTable() const { return t_; }
 
   // core_i is same as clo_tail [uno2004a, uno2004b]
   int CoreIndex(const SortedItemSet & items) const;

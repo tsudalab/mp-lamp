@@ -176,10 +176,10 @@ HashEntry<VAL> *Hash<VAL>::Replace(int key) {
             victimPrevElement->setNext(victimElement->getNext());
           return victimElement;
         }
-      }
-      else {
+      } else {
         if (element->getImportance() < victimElement->getImportance() ) {
-          victimElement = element; victimPrevElement = prevElement;
+          victimElement = element;
+          victimPrevElement = prevElement;
           victimIndex = index;
           if (element->getImportance() < kReplaceVisitNum) {
             assert(victimElement);
@@ -215,12 +215,10 @@ HashEntry<VAL> *Hash<VAL>::Allocate(uint64 code) {
   if (!is_used_up_) {
     element = &element_table_[num_used_++];
     if (num_used_ == table_size_) is_used_up_ = true;
-  }
-  else {
+  } else {
     if (!use_gc_) {
       element = Replace(key);
-    }
-    else {
+    } else {
       assert(0);
       if (free_list_ == 0) {
         // fixme: implement smalltreegc
@@ -278,6 +276,7 @@ void Hash<VAL>::DumpUsed(std::ostream & out, std::size_t size) {
 } // namespace lamp_search
 
 #endif // _LAMP_SEARCH_HASH_H_
+
 /* Local Variables:  */
 /* compile-command: "scons -u" */
 /* End:              */

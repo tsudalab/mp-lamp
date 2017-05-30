@@ -270,6 +270,7 @@ class VariableBitsetHelper {
 
   void InitFromString(const std::string & str, Block * elm) const;
 
+  std::size_t NuBits() const { return nu_bits; }
   std::size_t NuBlocks() const { return traits::calc_nu_blocks(nu_bits); }
 
   std::size_t nu_bits;
@@ -810,6 +811,7 @@ class VariableBitset {
  private:
   Block * elm_;
 
+  std::size_t NuBits() const { return nu_bits; }
   std::size_t NuBlocks() const { return traits::calc_nu_blocks(nu_bits); }
 
   void InitFromString(const std::string & str);

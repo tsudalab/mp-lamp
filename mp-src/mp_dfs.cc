@@ -332,9 +332,11 @@ MP_LAMP::~MP_LAMP() {
   }
 }
 
-void MP_LAMP::InitDatabaseRoot(std::istream & is1, std::istream & is2) {
+void MP_LAMP::InitDatabaseRoot(std::istream & is1, std::istream & is2,
+                               FunctionsSuper & functions) {
   uint64 * data = NULL;
   uint64 * positive = NULL;
+  double * pos_val = NULL;
   boost::array<int, 5> counters; // nu_bits, nu_trans, nu_items, max_item_in_transaction
   counters.assign(-1);
 
@@ -356,13 +358,15 @@ void MP_LAMP::InitDatabaseRoot(std::istream & is1, std::istream & is2) {
     if (FLAGS_lcm) {
       reader.ReadFilesLCM(&bsh_,
                           is1, &data, &nu_trans, &nu_items,
-                          is2, &positive, &nu_pos_total,
-                          item_names, &max_item_in_transaction);
+                          is2, &positive, &pos_val, &nu_pos_total,
+                          item_names, &max_item_in_transaction,
+                          functions.isReverse());
     } else {
       reader.ReadFiles(&bsh_,
                        is1, &data, &nu_trans, &nu_items,
-                       is2, &positive, &nu_pos_total,
-                       item_names, transaction_names, &max_item_in_transaction);
+                       is2, &positive, &pos_val, &nu_pos_total,
+                       item_names, transaction_names, &max_item_in_transaction,
+                       functions.isReverse());
     }
 
     counters[0] = (int)(bsh_->nu_bits);
@@ -376,12 +380,16 @@ void MP_LAMP::InitDatabaseRoot(std::istream & is1, std::istream & is2) {
 
   CallBcast(data, bsh_->NewArraySize(nu_items), MPI_UNSIGNED_LONG_LONG);
   CallBcast(positive, bsh_->NuBlocks(), MPI_UNSIGNED_LONG_LONG);
+  CallBcast(pos_val, nu_trans, MPI_DOUBLE);
 
   long long int start_time = timer_->Elapsed();
+  functions.setAllSize(nu_trans);
+  functions.setN1(nu_pos_total);
   d_ = new Database<uint64>(bsh_, data, nu_trans, nu_items,
-                            positive, nu_pos_total,
+                            positive, pos_val, nu_pos_total,
                             max_item_in_transaction,
-                            item_names, transaction_names);
+                            item_names, transaction_names,
+                            functions);
   log_.d_.pval_table_time_ = timer_->Elapsed() - start_time;
 
   g_ = new LampGraph<uint64>(*d_);
@@ -389,9 +397,11 @@ void MP_LAMP::InitDatabaseRoot(std::istream & is1, std::istream & is2) {
   InitDatabaseCommon();
 }
 
-void MP_LAMP::InitDatabaseRoot(std::istream & is1, int posnum) {
+void MP_LAMP::InitDatabaseRoot(std::istream & is1, int posnum,
+                               FunctionsSuper & functions) {
   uint64 * data = NULL;
   uint64 * positive = NULL;
+  double * pos_val = NULL;
   boost::array<int, 5> counters; // nu_bits, nu_trans, nu_items, max_item_in_transaction
   counters.assign(-1);
 
@@ -431,18 +441,21 @@ void MP_LAMP::InitDatabaseRoot(std::istream & is1, int posnum) {
 
   CallBcast(data, bsh_->NewArraySize(nu_items), MPI_UNSIGNED_LONG_LONG);
 
+  functions.setAllSize(nu_trans);
+  functions.setN1(nu_pos_total);
   d_ = new Database<uint64>(bsh_, data, nu_trans, nu_items,
-                            positive, nu_pos_total,
+                            positive, pos_val, nu_pos_total,
                             max_item_in_transaction,
-                            item_names, transaction_names);
+                            item_names, transaction_names, functions);
   g_ = new LampGraph<uint64>(*d_);
 
   InitDatabaseCommon();
 }
 
-void MP_LAMP::InitDatabaseSub(bool pos) {
+void MP_LAMP::InitDatabaseSub(bool pos, FunctionsSuper & functions) {
   uint64 * data = NULL;
   uint64 * positive = NULL;
+  double * pos_val = NULL;
   boost::array<int, 5> counters; // nu_bits, nu_trans, nu_items, max_item_in_transaction
   counters.assign(-1);
 
@@ -463,16 +476,24 @@ void MP_LAMP::InitDatabaseSub(bool pos) {
 
     bsh_ = new VariableBitsetHelper<uint64>(nu_bits);
     data = bsh_->NewArray(nu_items);
-    if (pos) positive = bsh_->New();
+    if (pos) {
+      positive = bsh_->New();
+      pos_val = new double[nu_trans];
+    }
   }
 
   CallBcast(data, bsh_->NewArraySize(nu_items), MPI_UNSIGNED_LONG_LONG);
-  if (pos) CallBcast(positive, bsh_->NuBlocks(), MPI_UNSIGNED_LONG_LONG);
+  if (pos) {
+    CallBcast(positive, bsh_->NuBlocks(), MPI_UNSIGNED_LONG_LONG);
+    CallBcast(pos_val, nu_trans, MPI_DOUBLE);
+  }
 
+  functions.setAllSize(nu_trans);
+  functions.setN1(nu_pos_total);
   d_ = new Database<uint64>(bsh_, data, nu_trans, nu_items,
-                            positive, nu_pos_total,
+                            positive, pos_val, nu_pos_total,
                             max_item_in_transaction,
-                            NULL, NULL);
+                            NULL, NULL, functions);
   g_ = new LampGraph<uint64>(*d_);
 
   InitDatabaseCommon();
@@ -801,8 +822,7 @@ void MP_LAMP::RecvDTDReply(int src) {
     if (h_==0) {
       DTDCheck(); // at root
       log_.d_.dtd_phase_num_++;
-    }
-    else SendDTDReply();
+    } else SendDTDReply();
   }
 }
 
@@ -1464,8 +1484,7 @@ bool MP_LAMP::CheckProcessNodeEnd(int n, bool n_is_ms, int processed,
         return true;
       }
     }
-  }
-  else
+  } else
     if (processed >= n) return true;
 
   return false;
@@ -1709,7 +1728,7 @@ bool MP_LAMP::ProcessNode(int n) {
         // add do MPI_Reduce with MPI_Op MPI_Lor
         if (phase_ == 2 && FLAGS_third_phase) {
           int pos_sup_num = bsh_->AndCount(d_->PosNeg(), child_sup_buf_);
-          double pval = d_->PVal(sup_num, pos_sup_num);
+          double pval = d_->PVal(sup_num, pos_sup_num, child_sup_buf_, d_->PosVal());
           assert( pval >= 0.0 );
 
           RecordFrequentItemset(pval, sig_level_, sup_num, pos_sup_num, ppc_ext_buf);
@@ -1852,7 +1871,7 @@ bool MP_LAMP::ProcessNodeStraw1(int n) {
 
         if (phase_ == 2 && FLAGS_third_phase) {
           int pos_sup_num = bsh_->AndCount(d_->PosNeg(), child_sup_buf_);
-          double pval = d_->PVal(sup_num, pos_sup_num);
+          double pval = d_->PVal(sup_num, pos_sup_num, child_sup_buf_, d_->PosVal());
           assert( pval >= 0.0 );
 
           RecordFrequentItemset(pval, sig_level_, sup_num, pos_sup_num, ppc_ext_buf);
@@ -1921,12 +1940,10 @@ void MP_LAMP::RecvRequest(int src) {
     if (is_lifeline >= 0) {
       lifeline_thieves_->Push(thief);
       SendReject(thief); // notify
-    }
-    else {
+    } else {
       SendReject(thief); // notify
     }
-  }
-  else {
+  } else {
     DBG( D(2,false) << "\tpush" << std::endl; );
     if (is_lifeline >= 0) thieves_->Push(thief);
     else thieves_->Push(-thief-1);
@@ -2024,8 +2041,7 @@ void MP_LAMP::RecvGive(int src, MPI_Status probe_status) {
     lifelines_activated_[src] = false;
     log_.d_.lifeline_steal_num_++;
     log_.d_.lifeline_nodes_received_ += (new_nu_itemset - orig_nu_itemset);
-  }
-  else {
+  } else {
     log_.d_.steal_num_++;
     log_.d_.nodes_received_ += (new_nu_itemset - orig_nu_itemset);
   }
@@ -2612,7 +2628,9 @@ void MP_LAMP::SortSignificantSets() {
 
     int sup_num = bsh_->Count(sup_buf_);
     int pos_sup_num = bsh_->AndCount(d_->PosNeg(), sup_buf_);
-    double pval = d_->PVal(sup_num, pos_sup_num);
+    double pval = d_->PVal(sup_num, pos_sup_num, sup_buf_, d_->PosVal());
+    if (d_->isReverse())
+      pos_sup_num = sup_num - pos_sup_num;
 
     final_significant_set_->insert(
         SignificantSetResult(pval, set, sup_num, pos_sup_num)
@@ -2792,8 +2810,7 @@ void MP_LAMP::MainLoop() {
           Distribute();
           Reject(); // distribute finished, reject remaining requests
           if (h_==0 && phase_ == 1) CheckCSThreshold();
-        }
-        else break;
+        } else break;
       }
       if (dtd_.terminated_) break;
 
@@ -2813,8 +2830,7 @@ void MP_LAMP::MainLoop() {
       if (h_==0 && phase_ == 1) CheckCSThreshold();
       log_.d_.idle_time_ += timer_->Elapsed() - log_.idle_start_;
     }
-  }
-  else if (phase_ == 3) {
+  } else if (phase_ == 3) {
     ExtractSignificantSet();
     if (h_==0) SendResultRequest();
 
@@ -2837,8 +2853,7 @@ void MP_LAMP::MainLoopStraw1() {
           Probe();
           if (dtd_.terminated_) break;
           if (h_==0 && phase_ == 1) CheckCSThreshold();
-        }
-        else break;
+        } else break;
       }
       if (dtd_.terminated_) break;
 
@@ -2852,8 +2867,7 @@ void MP_LAMP::MainLoopStraw1() {
       if (h_==0 && phase_ == 1) CheckCSThreshold();
       log_.d_.idle_time_ += timer_->Elapsed() - log_.idle_start_;
     }
-  }
-  else if (phase_ == 3) {
+  } else if (phase_ == 3) {
     ExtractSignificantSet();
     if (h_==0) SendResultRequest();
 
@@ -3016,21 +3030,20 @@ std::ostream & MP_LAMP::PrintSignificantSet(std::ostream & out) const {
   // add information for non default SigsetRecordMode
 
   s << "# number of significant patterns=" << final_significant_set_->size() << std::endl;
-  s << "# pval (raw)    pval (corr)         freq     pos        # items items\n";
+  s << "# pval_(raw)\tpval_(corr)\tfreq\tpos\t#items\titems\n";
   for(std::set<SignificantSetResult, sigset_compare>::const_iterator it
           = final_significant_set_->begin();
       it != final_significant_set_->end(); ++it) {
 
-    s << "" << std::setw(16) << std::left << (*it).pval_ << std::right
-      << "" << std::setw(16) << std::left << (*it).pval_ * final_closed_set_num_ << std::right
-      << "" << std::setw(8)  << (*it).sup_num_
-      << "" << std::setw(8)  << (*it).pos_sup_num_
-      << "";
-    // s << "pval (raw)="   << std::setw(16) << std::left << (*it).pval_ << std::right
-    //   << "pval (corr)="  << std::setw(16) << std::left << (*it).pval_ * final_closed_set_num_ << std::right
-    //   << "\tfreq=" << std::setw(8)  << (*it).sup_num_
-    //   << "\tpos="  << std::setw(8)  << (*it).pos_sup_num_
-    //   << "\titems";
+    s << (*it).pval_ << std::right
+      << "\t" << (*it).pval_ * final_closed_set_num_ << std::right
+      << "\t" << (*it).sup_num_
+      << "\t" << (*it).pos_sup_num_;
+    // s << "" << std::setw(16) << std::left << (*it).pval_ << std::right
+    //   << "" << std::setw(16) << std::left << (*it).pval_ * final_closed_set_num_ << std::right
+    //   << "" << std::setw(8)  << (*it).sup_num_
+    //   << "" << std::setw(8)  << (*it).pos_sup_num_
+    //   << "";
 
     const int * item = (*it).set_;
     final_significant_stack_->Print(s, d_->ItemNames(), item);
@@ -3659,8 +3672,7 @@ std::ostream & MP_LAMP::PrintLog(std::ostream & out) const {
   return out;
 }
 
-MP_LAMP::Log::Log() : plog_buf_ (NULL), plog_gather_buf_ (NULL), gather_buf_ (NULL)
-{
+MP_LAMP::Log::Log() : plog_buf_ (NULL), plog_gather_buf_ (NULL), gather_buf_ (NULL) {
   Init();
 }
 

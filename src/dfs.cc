@@ -100,10 +100,10 @@ DFS::~DFS() {
 void DFS::Init() {
   if (tt_) delete tt_;
 
-  std::size_t elm_size = sizeof(Graph::Node);
-  std::size_t elm_num = FLAGS_ttsize / elm_size;
+  // std::size_t elm_size = sizeof(Graph::Node);
+  // std::size_t elm_num = FLAGS_ttsize / elm_size;
 
-  //tt_ = new Hash<uint8>(elm_num, false); // (elm_num, use_gc)
+  // tt_ = new Hash<uint8>(elm_num, false); // (elm_num, use_gc)
 
   MakeRandomTable();
   root_hash_code_.set(0ull, 0ull);
@@ -330,7 +330,8 @@ void DFS::MakeRandomTable() {
     // bs &= rand_u64();
     // random_table_.push_back(bs);
     uint64 r1, r2;
-    r1 = rand_u64(); r2 = rand_u64();
+    r1 = rand_u64();
+    r2 = rand_u64();
     // ui = 0;
     // ui |= r1;
     // ui <<= 64;
@@ -358,21 +359,6 @@ std::ostream & DFS::DumpRandomTable(std::ostream & out) const {
   return out;
 }
 
-// std::ostream & DFS::DumpTopK(std::ostream & out) const {
-//   std::stringstream s;
-
-//   for(TopKData::const_iterator it = top_k_.pval_index_pair_.begin();
-//       it != top_k_.pval_index_pair_.end(); ++it) {
-//     s << "pval=" << std::setw(12) << (*it).first
-//       << ":set=" << top_k_.itemset_[(*it).second]
-//       << ":idx=" << (*it).second
-//       << std::endl;
-//   }
-  
-//   out << s.str() << std::flush;
-//   return out;
-// }  
-
 std::ostream & DFS::PrintResults(std::ostream & out) const {
   const Table & tbl = GetGraph().GetTable();
   std::stringstream s;
@@ -397,6 +383,7 @@ std::ostream & DFS::PrintResults(std::ostream & out) const {
 }  
 
 } // namespace lamp_search
+
 /* Local Variables:  */
 /* compile-command: "scons -u" */
 /* End:              */

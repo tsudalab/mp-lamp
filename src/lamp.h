@@ -82,7 +82,7 @@ class Lamp {
   void FirstPhaseLoop();
   void LCMLoop();
 
-  // hoge; // implement display method for each mode
+  // implement display method for each mode
   std::ostream & PrintResults(std::ostream & out) const;
   // std::ostream & PrintSignificantMap(std::ostream & out) const;
   std::ostream & PrintSignificantSet(std::ostream & out) const;

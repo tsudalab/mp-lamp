@@ -100,8 +100,7 @@ LCM_DFS_VBA::LCM_DFS_VBA(const LCM_Graph_VBA<uint64> & g) :
     cs_thr_ (NULL),
     cs_num_accum_ (NULL),
     final_closed_set_num_ (0ll),
-    final_support_ (0)
-{
+    final_support_ (0) {
   assert(FLAGS_topk > 0);
   sup_bitset_buf_ = bsh.New();
 }
@@ -270,8 +269,7 @@ void LCM_DFS_VBA::LAMP() {
                 << "\n";
     }
     closed_set_num_2nd = closed_set_num_;
-  }
-  else {
+  } else {
     closed_set_num_2nd = 0ll;
   }
 
@@ -602,8 +600,7 @@ void LCM_DFS_VBA::DiscardSignificantList() {
     // permits == case
     if ((*rit).first > sig_level_) {
       significant_map_.erase(--rit.base());
-    }
-    else break;
+    } else break;
   }
 }
 

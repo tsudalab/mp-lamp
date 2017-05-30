@@ -39,6 +39,7 @@
 #include "timer.h"
 #include "lcm_graph.h"
 #include "lcm_dfs.h"
+#include "functions/Functions4fisher.h"
 
 DEFINE_string(item, "", "filename of item set");
 DEFINE_string(pos, "", "filename of positive / negative file");
@@ -57,7 +58,8 @@ int main(int argc, char ** argv)
   std::ifstream ifs1, ifs2;
   ifs1.open(FLAGS_item.c_str(), std::ios::in);
   ifs2.open(FLAGS_pos.c_str(), std::ios::in);
-  Table t(ifs1, ifs2);
+  Functions4fisher functions(1);
+  Table t(ifs1, ifs2, functions);
   ifs1.close();
   ifs2.close();
   LCM_Graph g(t);
@@ -80,6 +82,7 @@ int main(int argc, char ** argv)
 
   return 0;
 }
+
 /* Local Variables:  */
 /* compile-command: "scons -u" */
 /* End:              */

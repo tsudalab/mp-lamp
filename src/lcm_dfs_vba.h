@@ -54,8 +54,7 @@ namespace lamp_search {
 class SupportStack {
  public:
   SupportStack(const VariableBitsetHelper<uint64> & helper)
-      : bsh (helper)
-  {
+      : bsh (helper) {
     stack_ = new VariableBitsetArray<uint64>(bsh.nu_bits, kMaxSearchDepth+1);
   }
 

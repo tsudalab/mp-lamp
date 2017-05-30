@@ -43,6 +43,10 @@
 #include "database.h"
 #include "lamp_graph.h"
 #include "lamp.h"
+#include "functions/Functions4chi.h"
+#include "functions/Functions4fisher.h"
+#include "functions/Functions4u_test.h"
+#include "functions/FunctionsSuper.h"
 
 DEFINE_bool(lcm, false, "item file is lcm style");
 
@@ -57,8 +61,14 @@ DEFINE_bool(loop, false, "use loop version (similar behavior to MP version)");
 
 DEFINE_bool(log, false, "show log");
 
+DEFINE_string(alternative, "greater", "the alternative hypothesis ('two.sided', 'greater' or 'less')");
+DEFINE_string(p, "fisher", "method of statistical hypothesis test ('chi' or 'fisher' or 'u_test')");
+
 using namespace lamp_search;
 
+/**
+ * Run multiple testing correction.
+ */
 int main(int argc, char ** argv)
 {
   google::ParseCommandLineFlags(&argc, &argv, true);
@@ -78,6 +88,23 @@ int main(int argc, char ** argv)
     return 1;
   }
 
+  int alternative = -1;
+  if (FLAGS_alternative == "two.sided") {
+    alternative = 0;
+  } else if (FLAGS_alternative == "greater") {
+    alternative = 1;
+  } else if (FLAGS_alternative == "less") {
+    alternative = -1;
+  } else {
+    std::cout << "--alternative must be 'two.sided', 'greater' or 'less'" << std::endl;
+    return 1;
+  }
+
+  if (FLAGS_p != "chi" && FLAGS_p != "fisher" && FLAGS_p != "u_test") {
+    std::cout << "--p must be 'chi' or 'fisher' or 'u_test'" << std::endl;
+    return 1;
+  }
+
   // error if at_least_n > at_most_n
 
   long long int search_start_time, search_end_time;
@@ -87,6 +114,7 @@ int main(int argc, char ** argv)
 
   uint64 * data = NULL;
   uint64 * positive = NULL;
+  double * pos_val = NULL;
 
   int nu_trans;
   int nu_items;
@@ -97,6 +125,18 @@ int main(int argc, char ** argv)
   std::vector< std::string > * transaction_names = NULL;
   item_names = new std::vector< std::string >;
   transaction_names = new std::vector< std::string >;
+
+  FunctionsSuper * functions = NULL;
+  if (FLAGS_p == "fisher") {
+    functions = new Functions4fisher(alternative);
+  } else if (FLAGS_p == "chi") {
+    functions = new Functions4chi(alternative);
+  } else if (FLAGS_p == "u_test") {
+    functions = new Functions4u_test(alternative);
+  } else {
+    std::cout << "unsupported method" << std::endl;
+    return 1;
+  }
 
   DatabaseReader<uint64> reader;
 
@@ -116,18 +156,19 @@ int main(int argc, char ** argv)
       if (FLAGS_lcm) {
         reader.ReadFilesLCM(&bsh,
                             ifs1, &data, &nu_trans, &nu_items,
-                            ifs2, &positive, &nu_pos_total,
-                            item_names, &max_item_in_transaction);
+                            ifs2, &positive, &pos_val, &nu_pos_total,
+                            item_names, &max_item_in_transaction,
+                            functions->isReverse());
       } else {
         reader.ReadFiles(&bsh,
                          ifs1, &data, &nu_trans, &nu_items,
-                         ifs2, &positive, &nu_pos_total,
-                         item_names, transaction_names, &max_item_in_transaction);
+                         ifs2, &positive, &pos_val, &nu_pos_total,
+                         item_names, transaction_names, &max_item_in_transaction,
+                         functions->isReverse());
       }
       ifs2.close();
       ifs1.close();
-    }
-    else {
+    } else {
       std::ifstream ifs1;
       ifs1.open(FLAGS_item.c_str(), std::ios::in);
       if (ifs1.fail())
@@ -143,46 +184,54 @@ int main(int argc, char ** argv)
                          item_names, transaction_names, &max_item_in_transaction);
       }
       ifs1.close();
+      if (functions->isReverse()) {
+        nu_pos_total = nu_trans - nu_pos_total;
+      }
     }
-  }
-  catch(std::runtime_error & err)
-  {
+  } catch(std::runtime_error & err) {
     std::cout << err.what() << std::endl;
+    delete functions;
     return 1;
   }
 
-  Database<uint64> d(bsh, data, nu_trans, nu_items,
-                     positive, nu_pos_total,
-                     max_item_in_transaction,
-                     item_names, transaction_names);
-  LampGraph<uint64> g(d);
-  Lamp search(g);
-
-  std::cout << "# ";
-  d.ShowInfo(std::cout);
-
-  search_start_time = Timer::GetInstance()->Elapsed();
-  try
   {
-    if (FLAGS_loop)
-      search.SearchLoop();
-    else
-      search.Search();
-    search_end_time = Timer::GetInstance()->Elapsed();
-  }
-  catch(std::runtime_error & err)
-  {
-    std::cout << err.what() << std::endl;
-    return 1;
-  }
+    Database<uint64> d(bsh, data, nu_trans, nu_items,
+                       positive, pos_val, nu_pos_total,
+                       max_item_in_transaction,
+                       item_names, transaction_names,
+                       *functions);
+    LampGraph<uint64> g(d);
+    Lamp search(g);
 
-  std::cout << "# time all="
-            << std::setw(12) << search_end_time / GIGA
-            << "\ttime search=" << std::setw(12)
-            << (search_end_time - search_start_time) / GIGA
-            << std::endl;
-  search.PrintResults(std::cout);
-  if (FLAGS_log) search.PrintLog(std::cout);
+    std::cout << "# ";
+    d.ShowInfo(std::cout);
+
+    search_start_time = Timer::GetInstance()->Elapsed();
+    try
+    {
+      if (FLAGS_loop)
+        search.SearchLoop();
+      else
+        search.Search();
+      search_end_time = Timer::GetInstance()->Elapsed();
+    }
+    catch(std::runtime_error & err)
+    {
+      std::cout << err.what() << std::endl;
+      return 1;
+    }
+
+    std::cout << "# time all="
+              << std::setw(12) << search_end_time / GIGA
+              << "\ttime search=" << std::setw(12)
+              << (search_end_time - search_start_time) / GIGA
+              << std::endl;
+    search.PrintResults(std::cout);
+    if (FLAGS_log) search.PrintLog(std::cout);
+
+    delete bsh;
+    delete functions;
+  }
 
   return 0;
 }

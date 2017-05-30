@@ -48,6 +48,7 @@
 #include "database.h"
 #include "lcm_graph_vba.h"
 #include "lamp_graph.h"
+#include "functions/Functions4fisher.h"
 
 using namespace lamp_search;
 
@@ -56,6 +57,7 @@ TEST (LampGraphTest, ToyDataTest) {
 
   uint64 * data = NULL;
   uint64 * positive = NULL;
+  double * pos_val = NULL;
   boost::array<int, 3> counters; // nu_bits, nu_items, max_item_in_transaction
   counters.assign(-1);
 
@@ -88,15 +90,16 @@ TEST (LampGraphTest, ToyDataTest) {
     ifs2.open("../../../samples/sample_data/sample_expression_over1.csv", std::ios::in);
     // read positives into uint64 * array and prepare database
     reader.ReadPosNeg(ifs2, nu_trans, transaction_names,
-                      &nu_pos_total, bsh, &positive);
+                      &nu_pos_total, bsh, &positive, &pos_val, false);
     // positive_count = bsh->NuBlocks();
     ifs2.close();
   }
 
+  Functions4fisher functions(nu_trans, nu_pos_total, 1);
   Database<uint64> d(bsh, data, nu_trans, nu_items,
-                     positive, nu_pos_total,
+                     positive, pos_val, nu_pos_total,
                      max_item_in_transaction,
-                     item_names, transaction_names);
+                     item_names, transaction_names, functions);
   LampGraph<uint64> g(d);
 
   //--------

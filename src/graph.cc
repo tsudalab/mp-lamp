@@ -78,8 +78,7 @@ void Graph::Node::Init() {
 //==============================================================================
 
 Graph::Graph(const Table & table) :
-    t_ (table)
-{
+    t_ (table) {
 }
 
 Graph::~Graph() {

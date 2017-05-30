@@ -186,9 +186,9 @@ class SortedItemSet {
   typedef ItemSetType::iterator iterator;
   typedef ItemSetType::const_iterator const_iterator;
   iterator begin() { return set_.begin(); }
-  iterator end() { return set_.begin()+num_; }
+  iterator end() { return set_.begin() + num_; }
   const_iterator begin() const { return set_.begin(); }
-  const_iterator end() const { return set_.begin()+num_; }
+  const_iterator end() const { return set_.begin() + num_; }
 
  private:
   ItemSetType set_;

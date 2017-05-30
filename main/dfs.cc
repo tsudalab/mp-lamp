@@ -39,6 +39,7 @@
 #include "timer.h"
 #include "graph.h"
 #include "dfs.h"
+#include "functions/Functions4fisher.h"
 
 DEFINE_string(item, "", "filename of item set");
 DEFINE_string(pos, "", "filename of positive / negative file");
@@ -70,7 +71,8 @@ int main(int argc, char ** argv)
   std::ifstream ifs1, ifs2;
   ifs1.open(FLAGS_item.c_str(), std::ios::in);
   ifs2.open(FLAGS_pos.c_str(), std::ios::in);
-  Table t(ifs1, ifs2);
+  Functions4fisher functions(1);
+  Table t(ifs1, ifs2, functions);
   ifs1.close();
   ifs2.close();
   Graph g(t);

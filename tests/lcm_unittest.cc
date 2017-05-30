@@ -43,6 +43,8 @@
 #include "variable_bitset_array.h"
 #include "table_vba.h"
 #include "lcm_graph_vba.h"
+#include "functions/FunctionsSuper.h"
+#include "functions/Functions4fisher.h"
 
 using namespace lamp_search;
 
@@ -67,14 +69,14 @@ static void PrintItemSet(std::ostream & out, const SortedItemSet & items) {
 static void FillItemSet(SortedItemSet & items) {
   int i=0;
   for (; i<kMaxSearchDepth ; i++) {
-    if (items[i] >= END) break;;
+    if (items[i] >= END) break;
   }
   for (; i<kMaxSearchDepth ; i++) {
     items[i] = END;
   }
 }
 
-static void ReadSampleTestData(Table ** t) {
+static void ReadSampleTestData(Table ** t, FunctionsSuper **functions) {
   std::stringstream item_ss, pos_ss;
 
   item_ss << "#test,i0,i1,i2,i3,i4,i5,i6\n"
@@ -97,14 +99,16 @@ static void ReadSampleTestData(Table ** t) {
           << "t6,0\n"
           << "t7,0\n";
 
-  *t = new Table(item_ss, pos_ss);
+  *functions = new Functions4fisher(1);
+  *t = new Table(item_ss, pos_ss, **functions);
 }
 
 } // anonymous namespace
 
 TEST (LCMTest, SampleDataTest) {
   Table * t;
-  ReadSampleTestData(&t);
+  FunctionsSuper * functions;
+  ReadSampleTestData(&t, &functions);
 
   std::stringstream ss;
   t->DumpItems(ss);
@@ -123,13 +127,15 @@ TEST (LCMTest, SampleDataTest) {
   EXPECT_EQ(ss.str(), ss_comp_str);
 
   delete t;
+  delete functions;
 }
 
 TEST (LCMTest, ToyDataTest) {
   std::ifstream ifs1, ifs2;
   ifs1.open("../../../samples/sample_data/sample_item.csv");
   ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
-  Table t(ifs1, ifs2);
+  Functions4fisher functions(1);
+  Table t(ifs1, ifs2, functions);
   ifs1.close();
   ifs2.close();
   LCM_Graph g(t);
@@ -232,7 +238,8 @@ TEST (LCMTest, ToyDataTest) {
 
 TEST (LCMTest, CoreIndexTest) {
   Table * t;
-  ReadSampleTestData(&t);
+  FunctionsSuper * functions;
+  ReadSampleTestData(&t, &functions);
   LCM_Graph g(*t);
 
   // from fig.2 in [uno2004a]    1 2 3 4 5 6 7 8 9 10      core_i
@@ -259,6 +266,9 @@ TEST (LCMTest, CoreIndexTest) {
   EXPECT_EQ(g.CoreIndex(i23),  3);
   EXPECT_EQ(g.CoreIndex(i24),  4);
   EXPECT_EQ(g.CoreIndex(i25),  5);
+
+  delete t;
+  delete functions;
 }
 
 TEST (LCMTest, VBACoreIndexTest) {
@@ -284,7 +294,8 @@ TEST (LCMTest, VBACoreIndexTest) {
           << "t6,0\n"
           << "t7,0\n";
 
-  TableVBA<uint64> t(item_ss, pos_ss);
+  Functions4fisher functions(1);
+  TableVBA<uint64> t(item_ss, pos_ss, functions);
   LCM_Graph_VBA<uint64> g(t);
 
   // from fig.2 in [uno2004a]    1 2 3 4 5 6 7 8 9 10      core_i
@@ -335,7 +346,8 @@ TEST (LCMTest, VBACoreIndexTest) {
 
 TEST (LCMTest, ClosureTest) {
   Table * t;
-  ReadSampleTestData(&t);
+  FunctionsSuper * functions;
+  ReadSampleTestData(&t, &functions);
   LCM_Graph g(*t);
 
   SortedItemSet buf   = {{D,D,D,D,D,D,D,D,D,D}}; FillItemSet(buf);
@@ -417,11 +429,15 @@ TEST (LCMTest, ClosureTest) {
   g.Closure(i6, &buf);
   PrintItemSet(std::cout, buf);
   EXPECT_EQ(buf, i6c);
+
+  delete t;
+  delete functions;
 }
 
 TEST (LCMTest, PPCExtentionTest) {
   Table * t;
-  ReadSampleTestData(&t);
+  FunctionsSuper * functions;
+  ReadSampleTestData(&t, &functions);
   LCM_Graph g(*t);
 
   SortedItemSet buf     = {{D,D,D,D,D,D,D,D,D,D}}; FillItemSet(buf);
@@ -606,6 +622,9 @@ TEST (LCMTest, PPCExtentionTest) {
   // boost::to_string(sup_buf, sup_str_buf);
   boost::to_string((sup & t.NthData(ni)), sup_str_buf);
   EXPECT_EQ("1101001", sup_str_buf);
+
+  delete t;
+  delete functions;
 }
 #endif
 

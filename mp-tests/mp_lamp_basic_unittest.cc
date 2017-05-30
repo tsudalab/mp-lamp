@@ -40,6 +40,7 @@
 #include "utils.h"
 #include "lcm_graph_vba.h"
 #include "lcm_dfs_vba.h"
+#include "functions/Functions4fisher.h"
 
 #include "mp_dfs.h"
 
@@ -66,15 +67,16 @@ TEST (MPI_BASIC_TEST, InitTest) {
   // (int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m)
   MP_LAMP search(rank, nu_proc, FLAGS_n, FLAGS_n_is_ms, FLAGS_w, FLAGS_l, FLAGS_m);
 
+  Functions4fisher functions(1);
   if (rank==0) {
     std::ifstream ifs1, ifs2;
     ifs1.open("../../../samples/sample_data/sample_item.csv", std::ios::in);
     ifs2.open("../../../samples/sample_data/sample_expression_over1.csv", std::ios::in);
-    search.InitDatabaseRoot(ifs1, ifs2);
+    search.InitDatabaseRoot(ifs1, ifs2, functions);
     ifs1.close();
     ifs2.close();
   } else {
-    search.InitDatabaseSub(true);
+    search.InitDatabaseSub(true, functions);
   }
 
   for(int i = 0; i<nu_proc; i++) {
@@ -94,13 +96,14 @@ TEST (MPI_BASIC_TEST, InitTest2) {
   // (int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m)
   MP_LAMP search(rank, nu_proc, FLAGS_n, FLAGS_n_is_ms, FLAGS_w, FLAGS_l, FLAGS_m);
 
+  Functions4fisher functions(1);
   if (rank==0) {
     std::ifstream ifs1;
     ifs1.open("../../../samples/sample_data/sample_item.csv", std::ios::in);
-    search.InitDatabaseRoot(ifs1, 7);
+    search.InitDatabaseRoot(ifs1, 7, functions);
     ifs1.close();
   } else {
-    search.InitDatabaseSub(false);
+    search.InitDatabaseSub(false, functions);
   }
 
   for(int i = 0; i<nu_proc; i++) {
@@ -120,15 +123,24 @@ TEST (MPI_BASIC_TEST, InitTestLarge) {
   // (int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m)
   MP_LAMP search(rank, nu_proc, FLAGS_n, FLAGS_n_is_ms, FLAGS_w, FLAGS_l, FLAGS_m);
 
+  Functions4fisher functions(1);
   if (rank==0) {
     std::ifstream ifs1, ifs2;
     ifs1.open("../../../samples/sample_data/yeast_col26/tfsite_both_col26.csv");
+    if (!ifs1.good()) {
+      std::cout << "[  SKIPPED ] File not found : sample_data/yeast_col26/tfsite_both_col26.csv" << std::endl;
+      return;
+    }
     ifs2.open("../../../samples/sample_data/yeast_col26/yeast_expression_col26_over15.csv");
-    search.InitDatabaseRoot(ifs1, ifs2);
+    if (!ifs2.good()) {
+      std::cout << "[  SKIPPED ] File not found : sample_data/yeast_col26/yeast_expression_col26_over15.csv" << std::endl;
+      return;
+    }
+    search.InitDatabaseRoot(ifs1, ifs2, functions);
     ifs1.close();
     ifs2.close();
   } else {
-    search.InitDatabaseSub(true);
+    search.InitDatabaseSub(true, functions);
   }
 
   for(int i = 0; i<nu_proc; i++) {

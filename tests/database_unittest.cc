@@ -38,6 +38,7 @@
 
 #include "variable_length_itemset.h"
 #include "database.h"
+#include "functions/Functions4fisher.h"
 
 using namespace lamp_search;
 
@@ -46,6 +47,7 @@ TEST (DatabaseTest, ReadTest) {
 
   uint64 * data = NULL;
   uint64 * positive = NULL;
+  double * pos_val = NULL;
   boost::array<int, 3> counters; // nu_bits, nu_items, max_item_in_transaction
   counters.assign(-1);
 
@@ -78,15 +80,16 @@ TEST (DatabaseTest, ReadTest) {
     ifs2.open("../../../samples/sample_data/sample_expression_over1.csv", std::ios::in);
     // read positives into uint64 * array and prepare database
     reader.ReadPosNeg(ifs2, nu_trans, transaction_names,
-                      &nu_pos_total, bsh, &positive);
+                      &nu_pos_total, bsh, &positive, &pos_val, false);
     // positive_count = bsh->NuBlocks();
     ifs2.close();
   }
 
+  Functions4fisher functions(nu_trans, nu_pos_total, 1);
   Database<uint64> d(bsh, data, nu_trans, nu_items,
-                     positive, nu_pos_total,
+                     positive, pos_val, nu_pos_total,
                      max_item_in_transaction,
-                     item_names, transaction_names);
+                     item_names, transaction_names, functions);
 
   std::stringstream s1, s2;
 
@@ -132,6 +135,7 @@ TEST (DatabaseTest, ReadTest2) {
 
   uint64 * data = NULL;
   uint64 * positive = NULL;
+  double * pos_val = NULL;
   boost::array<int, 3> counters; // nu_bits, nu_items, max_item_in_transaction
   counters.assign(-1);
 
@@ -154,8 +158,8 @@ TEST (DatabaseTest, ReadTest2) {
 
   reader.ReadFiles(&bsh,
                    ifs1, &data, &nu_trans, &nu_items,
-                   ifs2, &positive, &nu_pos_total,
-                   item_names, transaction_names, &max_item_in_transaction);
+                   ifs2, &positive, &pos_val, &nu_pos_total,
+                   item_names, transaction_names, &max_item_in_transaction, false);
 
   ifs1.close();
   ifs2.close();
@@ -164,10 +168,11 @@ TEST (DatabaseTest, ReadTest2) {
   counters[1] = nu_items; 
   counters[2] = max_item_in_transaction;
 
+  Functions4fisher functions(nu_trans, nu_pos_total, 1);
   Database<uint64> d(bsh, data, nu_trans, nu_items,
-                     positive, nu_pos_total,
+                     positive, pos_val, nu_pos_total,
                      max_item_in_transaction,
-                     item_names, transaction_names);
+                     item_names, transaction_names, functions);
 
   std::stringstream s1, s2;
 
@@ -214,76 +219,87 @@ TEST (DatabaseTest, ReadTest2) {
 // commented out because sample files
 // "tfsite_both_col26.csv" and "yeast_expression_col26_over15.csv" are removed.
 
-// TEST (DatabaseTest, LargeReadTest) {
-//   VariableBitsetHelper<uint64> * bsh = NULL;
+TEST (DatabaseTest, LargeReadTest) {
+  VariableBitsetHelper<uint64> * bsh = NULL;
 
-//   uint64 * data = NULL;
-//   uint64 * positive = NULL;
-//   boost::array<int, 3> counters; // nu_bits, nu_items, max_item_in_transaction
-//   counters.assign(-1);
+  uint64 * data = NULL;
+  uint64 * positive = NULL;
+  double * pos_val = NULL;
+  boost::array<int, 3> counters; // nu_bits, nu_items, max_item_in_transaction
+  counters.assign(-1);
 
-//   int nu_trans;
-//   int nu_items;
-//   int nu_pos_total = 0;
-//   int max_item_in_transaction;
+  int nu_trans;
+  int nu_items;
+  int nu_pos_total = 0;
+  int max_item_in_transaction;
 
-//   std::vector< std::string > * item_names = NULL;
-//   std::vector< std::string > * transaction_names = NULL;
-//   item_names = new std::vector< std::string >;
-//   transaction_names = new std::vector< std::string >;
+  std::vector< std::string > * item_names = NULL;
+  std::vector< std::string > * transaction_names = NULL;
+  item_names = new std::vector< std::string >;
+  transaction_names = new std::vector< std::string >;
 
-//   DatabaseReader<uint64> reader;
+  DatabaseReader<uint64> reader;
 
-//   {
-//     std::ifstream ifs1;
-//     ifs1.open("../../../samples/sample_data/yeast_col26/tfsite_both_col26.csv", std::ios::in);
-//     // read file into uint64 * array and prepare database
-//     reader.ReadItems(ifs1, &nu_trans, &nu_items, &bsh,
-//                      &data, item_names, transaction_names, &max_item_in_transaction);
-//     counters[0] = (int)(bsh->nu_bits);
-//     counters[1] = nu_items; 
-//     counters[2] = max_item_in_transaction;
-//     ifs1.close();
-//   }
+  {
+    std::ifstream ifs1;
+    ifs1.open("../../../samples/sample_data/yeast_col26/tfsite_both_col26.csv", std::ios::in);
+    if (!ifs1.good()) {
+      std::cout << "[  SKIPPED ] File not found : sample_data/yeast_col26/tfsite_both_col26.csv" << std::endl;
+      return;
+    }
+    // read file into uint64 * array and prepare database
+    reader.ReadItems(ifs1, &nu_trans, &nu_items, &bsh,
+                     &data, item_names, transaction_names, &max_item_in_transaction);
+    counters[0] = (int)(bsh->nu_bits);
+    counters[1] = nu_items; 
+    counters[2] = max_item_in_transaction;
+    ifs1.close();
+  }
 
-//   {
-//     std::ifstream ifs2;
-//     ifs2.open("../../../samples/sample_data/yeast_col26/yeast_expression_col26_over15.csv",
-//               std::ios::in);
-//     // read positives into uint64 * array and prepare database
-//     reader.ReadPosNeg(ifs2, nu_trans, transaction_names,
-//                       &nu_pos_total, bsh, &positive);
-//     // positive_count = bsh->NuBlocks();
-//     ifs2.close();
-//   }
+  {
+    std::ifstream ifs2;
+    ifs2.open("../../../samples/sample_data/yeast_col26/yeast_expression_col26_over15.csv",
+              std::ios::in);
+    if (!ifs2.good()) {
+      std::cout << "[  SKIPPED ] File not found : sample_data/yeast_col26/yeast_expression_col26_over15.csv" << std::endl;
+      return;
+    }
+    // read positives into uint64 * array and prepare database
+    reader.ReadPosNeg(ifs2, nu_trans, transaction_names,
+                      &nu_pos_total, bsh, &positive, &pos_val, false);
+    // positive_count = bsh->NuBlocks();
+    ifs2.close();
+  }
 
-//   Database<uint64> d(bsh, data, nu_trans, nu_items,
-//                      positive, nu_pos_total,
-//                      max_item_in_transaction,
-//                      item_names, transaction_names);
+  Functions4fisher functions(nu_trans, nu_pos_total, 1);
+  Database<uint64> d(bsh, data, nu_trans, nu_items,
+                     positive, pos_val, nu_pos_total,
+                     max_item_in_transaction,
+                     item_names, transaction_names, functions);
 
-//   std::stringstream s1, s2;
+  std::stringstream s1, s2;
 
-//   d.DumpItems(s1);
-//   d.DumpPosNeg(s2);
+  d.DumpItems(s1);
+  d.DumpPosNeg(s2);
 
-//   std::cout << "NuItems=" << d.NuItems() << std::endl;
-//   std::cout << "NuTransactions=" << d.NuTransaction() << std::endl;
-//   std::cout << "postotal=" << d.PosTotal() << std::endl;
+  std::cout << "NuItems=" << d.NuItems() << std::endl;
+  std::cout << "NuTransactions=" << d.NuTransaction() << std::endl;
+  std::cout << "postotal=" << d.PosTotal() << std::endl;
 
-//   std::cout << "max x=" << d.MaxX() << std::endl;
-//   std::cout << "max t=" << d.MaxT() << std::endl;
-//   std::cout << "max item in transaction=" << d.MaxItemInTransaction() << std::endl;
+  std::cout << "max x=" << d.MaxX() << std::endl;
+  std::cout << "max t=" << d.MaxT() << std::endl;
+  std::cout << "max item in transaction=" << d.MaxItemInTransaction() << std::endl;
 
-//   // BOOST_FOREACH (const Table::ItemInfo item, d.GetItemInfo()) {
-//   //   std::cout << item << std::endl;
-//   // }
-// }
+  // BOOST_FOREACH (const Table::ItemInfo item, d.GetItemInfo()) {
+  //   std::cout << item << std::endl;
+  // }
+}
 
 TEST (DatabaseTest, PValueTest) {
   VariableBitsetHelper<uint64> * bsh = NULL;
   uint64 * data = NULL;
   uint64 * positive = NULL;
+  double * pos_val = NULL;
   boost::array<int, 3> counters; // nu_bits, nu_items, max_item_in_transaction
   counters.assign(-1);
 
@@ -316,15 +332,16 @@ TEST (DatabaseTest, PValueTest) {
     ifs2.open("../../../samples/sample_data/sample_expression_over1.csv", std::ios::in);
     // read positives into uint64 * array and prepare database
     reader.ReadPosNeg(ifs2, nu_trans, transaction_names,
-                      &nu_pos_total, bsh, &positive);
+                      &nu_pos_total, bsh, &positive, &pos_val, false);
     // positive_count = bsh->NuBlocks();
     ifs2.close();
   }
 
+  Functions4fisher functions(nu_trans, nu_pos_total, 1);
   Database<uint64> d(bsh, data, nu_trans, nu_items,
-                     positive, nu_pos_total,
+                     positive, pos_val, nu_pos_total,
                      max_item_in_transaction,
-                     item_names, transaction_names);
+                     item_names, transaction_names, functions);
 
   //d.SetSigLev(0.05);
   //d.PrepareItemVals();
@@ -368,7 +385,7 @@ TEST (DatabaseTest, PValueTest) {
   pos_sup_num = bsh->Count(pos_sup);
   EXPECT_EQ(pos_sup_num, 5);
 
-  double p = d.PVal(sup_num, pos_sup_num);
+  double p = d.PVal(sup_num, pos_sup_num, NULL, NULL);
   std::cout << "sup=" << sup_num << "\tpos_sup=" << pos_sup_num
             << "\tp=" << p << std::endl;
 
@@ -378,7 +395,7 @@ TEST (DatabaseTest, PValueTest) {
 
   sup_num = bsh->Count(d.NthData(1));
   pos_sup_num = bsh->AndCount(d.PosNeg(), d.NthData(1));
-  p = d.PVal(sup_num, pos_sup_num);;
+  p = d.PVal(sup_num, pos_sup_num, NULL, NULL);
 
   std::cout << "sup=" << sup_num << "\tpos_sup=" << pos_sup_num
             << "\tp=" << p << std::endl;
@@ -387,7 +404,7 @@ TEST (DatabaseTest, PValueTest) {
 
   sup_num = bsh->Count(d.NthData(0));
   pos_sup_num = bsh->AndCount(d.PosNeg(), d.NthData(0));
-  p = d.PVal(sup_num, pos_sup_num);;
+  p = d.PVal(sup_num, pos_sup_num, NULL, NULL);
   std::cout << "sup=" << sup_num << "\tpos_sup=" << pos_sup_num
             << "\tp=" << p << std::endl;
   flag = ( p-epsilon <= 0.10023 && 0.10023 <= p+epsilon );
@@ -396,66 +413,75 @@ TEST (DatabaseTest, PValueTest) {
   bsh->Delete(sup);
 }
 
-// commented out because sample files are removed.
+TEST (DatabaseTest, PValueTest2) {
+  VariableBitsetHelper<uint64> * bsh = NULL;
 
-// TEST (DatabaseTest, PValueTest2) {
-//   VariableBitsetHelper<uint64> * bsh = NULL;
+  uint64 * data = NULL;
+  uint64 * positive = NULL;
+  double * pos_val = NULL;
+  boost::array<int, 3> counters; // nu_bits, nu_items, max_item_in_transaction
+  counters.assign(-1);
 
-//   uint64 * data = NULL;
-//   uint64 * positive = NULL;
-//   boost::array<int, 3> counters; // nu_bits, nu_items, max_item_in_transaction
-//   counters.assign(-1);
+  int nu_trans;
+  int nu_items;
+  int nu_pos_total = 0;
+  int max_item_in_transaction;
 
-//   int nu_trans;
-//   int nu_items;
-//   int nu_pos_total = 0;
-//   int max_item_in_transaction;
+  std::vector< std::string > * item_names = NULL;
+  std::vector< std::string > * transaction_names = NULL;
+  item_names = new std::vector< std::string >;
+  transaction_names = new std::vector< std::string >;
 
-//   std::vector< std::string > * item_names = NULL;
-//   std::vector< std::string > * transaction_names = NULL;
-//   item_names = new std::vector< std::string >;
-//   transaction_names = new std::vector< std::string >;
+  DatabaseReader<uint64> reader;
 
-//   DatabaseReader<uint64> reader;
+  // $ ./lamp3 --item ../../../samples/alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_item.csv --pos ../../../samples/alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_value.csv --a 0.05 --show_progress --nosecond_phase --nothird_phase
 
-//   // $ ./lamp3 --item ../../../samples/alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_item.csv --pos ../../../samples/alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_value.csv --a 0.05 --show_progress --nosecond_phase --nothird_phase
+  std::ifstream ifs1;
+  ifs1.open("../../../samples/alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_item.csv", std::ios::in);
+  if (!ifs1.good()) {
+    std::cout << "[  SKIPPED ] File not found : alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_item.csv" << std::endl;
+    return;
+  }
+  std::ifstream ifs2;
+  ifs2.open("../../../samples/alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_value.csv", std::ios::in);
+  if (!ifs2.good()) {
+    std::cout << "[  SKIPPED ] File not found : alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_value.csv" << std::endl;
+    return;
+  }
 
-//   std::ifstream ifs1;
-//   ifs1.open("../../../samples/alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_item.csv", std::ios::in);
-//   std::ifstream ifs2;
-//   ifs2.open("../../../samples/alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_value.csv", std::ios::in);
+  reader.ReadFiles(&bsh,
+                   ifs1, &data, &nu_trans, &nu_items,
+                   ifs2, &positive, &pos_val, &nu_pos_total,
+                   item_names, transaction_names, &max_item_in_transaction, false);
 
-//   reader.ReadFiles(&bsh,
-//                    ifs1, &data, &nu_trans, &nu_items,
-//                    ifs2, &positive, &nu_pos_total,
-//                    item_names, transaction_names, &max_item_in_transaction);
+  ifs1.close();
+  ifs2.close();
 
-//   ifs1.close();
-//   ifs2.close();
+  counters[0] = (int)(bsh->nu_bits);
+  counters[1] = nu_items; 
+  counters[2] = max_item_in_transaction;
 
-//   counters[0] = (int)(bsh->nu_bits);
-//   counters[1] = nu_items; 
-//   counters[2] = max_item_in_transaction;
+  Functions4fisher functions(nu_trans, nu_pos_total, 1);
+  Database<uint64> d(bsh, data, nu_trans, nu_items,
+                     positive, pos_val, nu_pos_total,
+                     max_item_in_transaction,
+                     item_names, transaction_names, functions);
 
-//   Database<uint64> d(bsh, data, nu_trans, nu_items,
-//                      positive, nu_pos_total,
-//                      max_item_in_transaction,
-//                      item_names, transaction_names);
+  std::stringstream s1, s2;
 
-//   std::stringstream s1, s2;
+  EXPECT_EQ(194, d.MaxItemInTransaction());
+  EXPECT_EQ(15, d.MaxX());
+  EXPECT_EQ(10, d.MaxT());
+  EXPECT_EQ(176, d.PosTotal());
 
-//   EXPECT_EQ(194, d.MaxItemInTransaction());
-//   EXPECT_EQ(15, d.MaxX());
-//   EXPECT_EQ(10, d.MaxT());
-//   EXPECT_EQ(176, d.PosTotal());
-
-//   d.DumpPMinTable(std::cout);
-// }
+  d.DumpPMinTable(std::cout);
+}
 
 TEST (DatabaseTest, PMinTestNoPos) {
   VariableBitsetHelper<uint64> * bsh = NULL;
   uint64 * data = NULL;
   uint64 * positive = NULL;
+  double * pos_val = NULL;
   boost::array<int, 3> counters; // nu_bits, nu_items, max_item_in_transaction
   counters.assign(-1);
 
@@ -483,10 +509,11 @@ TEST (DatabaseTest, PMinTestNoPos) {
     ifs1.close();
   }
 
+  Functions4fisher functions(nu_trans, nu_pos_total, 1);
   Database<uint64> d(bsh, data, nu_trans, nu_items,
-                     positive, nu_pos_total,
+                     positive, pos_val, nu_pos_total,
                      max_item_in_transaction,
-                     item_names, transaction_names);
+                     item_names, transaction_names, functions);
 
   // d.SetSigLev(0.05);
   d.PrepareItemVals();

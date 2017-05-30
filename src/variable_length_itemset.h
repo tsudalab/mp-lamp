@@ -150,15 +150,9 @@ class VariableLengthItemsetStack {
   // functions for mp-lamp
   void SetTimestamp(int ts) { m_->timestamp_ = ts; }
   int Timestamp() { return m_->timestamp_; }
-  // hoge;
-  // void SetTimestamp(int ts) { stack_[TIMESTAMP] = ts; }
-  // int Timestamp() { return stack_[TIMESTAMP]; }
 
   void SetFlag(int flg) { m_->flag_ = flg; }
   int Flag() { return m_->flag_; }
-  // hoge;
-  // void SetFlag(int flg) { stack_[FLAG] = flg; }
-  // int Flag() { return stack_[FLAG]; }
 
   int * Message();
 
@@ -197,10 +191,6 @@ class VariableLengthItemsetStack {
 
     int stack_[];
   };
-
-  // hoge;
-  // check all stack_, top_, ... usage and rewrite as needed
-  // int * stack_;
 
   /** message data */
   MessageBody * m_;

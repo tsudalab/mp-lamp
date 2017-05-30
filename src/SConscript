@@ -33,5 +33,5 @@ import os
 
 Import('env')
 env = env.Clone()
-env.StaticLibrary('lampsearch', Glob('*.cc'))
+env.StaticLibrary('lampsearch', Glob('*.cc') + Glob('functions/*.cc'))
 # env.SharedLibrary('lampsearch', Glob('*.cc'))
