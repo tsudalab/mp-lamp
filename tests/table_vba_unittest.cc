@@ -44,8 +44,8 @@ using namespace lamp_search;
 
 TEST (TableVBATest, ReadTest) {
   std::ifstream ifs1, ifs2;
-  ifs1.open("../../../samples/sample_data/sample_item.csv");
-  ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
+  ifs1.open("../samples/sample_data/sample_item.csv");
+  ifs2.open("../samples/sample_data/sample_expression_over1.csv");
   Functions4fisher functions(1);
   TableVBA<uint64> t(ifs1, ifs2, functions);
   ifs1.close();
@@ -82,8 +82,8 @@ TEST (TableVBATest, PValueTest) {
   typedef VariableBitsetArray<uint64> VBA;
 
   std::ifstream ifs1, ifs2;
-  ifs1.open("../../../samples/sample_data/sample_item.csv");
-  ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
+  ifs1.open("../samples/sample_data/sample_item.csv");
+  ifs2.open("../samples/sample_data/sample_expression_over1.csv");
   Functions4fisher functions(1);
   TableVBA<uint64> t(ifs1, ifs2, functions);
   ifs1.close();
@@ -153,8 +153,8 @@ TEST (TableVBATest, PValueTest) {
 
 // TEST (TableVBATest, LargeReadTest) {
 //   std::ifstream ifs1, ifs2;
-//   ifs1.open("../../../samples/sample_data/yeast_col26/tfsite_both_col26.csv");
-//   ifs2.open("../../../samples/sample_data/yeast_col26/yeast_expression_col26_over15.csv");
+//   ifs1.open("../samples/sample_data/yeast_col26/tfsite_both_col26.csv");
+//   ifs2.open("../samples/sample_data/yeast_col26/yeast_expression_col26_over15.csv");
 //   TableVBA<uint64> t(ifs1, ifs2);
 //   ifs1.close();
 //   ifs2.close();
@@ -191,12 +191,12 @@ TEST (TableVBATest, PvalLogTest) {
   // --item ../local/yeast_lamp/yeast_lamp_data/bind_genes/tfsite_both_col8.csv
   // --pos ../local/yeast_lamp/yeast_lamp_data/exp/yeast_expression_col8_over10.csv
 
-  ifs1.open("../../../samples/yeast_lamp/yeast_lamp_data/bind_genes/tfsite_both_col8.csv");
+  ifs1.open("../samples/yeast_lamp/yeast_lamp_data/bind_genes/tfsite_both_col8.csv");
   if (!ifs1.good()) {
     std::cout << "[  SKIPPED ] File not found : yeast_lamp/yeast_lamp_data/bind_genes/tfsite_both_col8.csv" << std::endl;
     return;
   }
-  ifs2.open("../../../samples/yeast_lamp/yeast_lamp_data/exp/yeast_expression_col8_over10.csv");
+  ifs2.open("../samples/yeast_lamp/yeast_lamp_data/exp/yeast_expression_col8_over10.csv");
   if (!ifs2.good()) {
     std::cout << "[  SKIPPED ] File not found : yeast_lamp/yeast_lamp_data/exp/yeast_expression_col8_over10.csv" << std::endl;
     return;

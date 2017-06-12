@@ -157,7 +157,7 @@ class FunctionsSuper {
   std::map<int, double> __minpvalTable; /**< the minimum p-value which support size is x */
 
  private:
-  const static double pi2 = 0.398942280401432677940; /**< constant value */
+  const static double pi2; /**< constant value */
 
 };
 

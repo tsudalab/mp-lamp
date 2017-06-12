@@ -47,8 +47,8 @@ using namespace lamp_search;
 
 TEST (GraphTest, ReadTest) {
   std::ifstream ifs1, ifs2;
-  ifs1.open("../../../samples/sample_data/sample_item.csv");
-  ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
+  ifs1.open("../samples/sample_data/sample_item.csv");
+  ifs2.open("../samples/sample_data/sample_expression_over1.csv");
   Functions4fisher functions(1);
   Table t(ifs1, ifs2, functions);
   ifs1.close();
@@ -90,8 +90,8 @@ TEST (GraphTest, ReadTest) {
 
 TEST (GraphTest, PValueNanTest) {
   std::ifstream ifs1, ifs2;
-  ifs1.open("../../../samples/sample_data/sample_item.csv");
-  ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
+  ifs1.open("../samples/sample_data/sample_item.csv");
+  ifs2.open("../samples/sample_data/sample_expression_over1.csv");
   Functions4fisher functions(1);
   Table t(ifs1, ifs2, functions);
   ifs1.close();
@@ -136,8 +136,8 @@ TEST (GraphTest, PValueNanTest) {
 
 TEST (GraphTest, PValueTest) {
   std::ifstream ifs1, ifs2;
-  ifs1.open("../../../samples/sample_data/sample_item.csv");
-  ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
+  ifs1.open("../samples/sample_data/sample_item.csv");
+  ifs2.open("../samples/sample_data/sample_expression_over1.csv");
   Functions4fisher functions(1);
   Table t(ifs1, ifs2, functions);
   ifs1.close();
@@ -197,12 +197,12 @@ TEST (GraphTest, PValueTest) {
 
 TEST (GraphTest, LargeReadTest2) {
   std::ifstream ifs1, ifs2;
-  ifs1.open("../../../samples/mcf7_transcriptome/egf_motif_item.csv");
+  ifs1.open("../samples/mcf7_transcriptome/egf_motif_item.csv");
   if (!ifs1.good()) {
     std::cout << "[  SKIPPED ] File not found : mcf7_transcriptome/egf_motif_item.csv" << std::endl;
     return;
   }
-  ifs2.open("../../../samples/mcf7_transcriptome/egf_motif_value.csv");
+  ifs2.open("../samples/mcf7_transcriptome/egf_motif_value.csv");
   if (!ifs2.good()) {
     std::cout << "[  SKIPPED ] File not found : mcf7_transcriptome/egf_motif_value.csv" << std::endl;
     return;
@@ -237,12 +237,12 @@ TEST (GraphTest, LargeReadTest2) {
 
 TEST (GraphTest, LargeReadTest) {
   std::ifstream ifs1, ifs2;
-  ifs1.open("../../../samples/sample_data/yeast_col26/tfsite_both_col26.csv");
+  ifs1.open("../samples/sample_data/yeast_col26/tfsite_both_col26.csv");
   if (!ifs1.good()) {
     std::cout << "[  SKIPPED ] File not found : sample_data/yeast_col26/tfsite_both_col26.csv" << std::endl;
     return;
   }
-  ifs2.open("../../../samples/sample_data/yeast_col26/yeast_expression_col26_over15.csv");
+  ifs2.open("../samples/sample_data/yeast_col26/yeast_expression_col26_over15.csv");
   if (!ifs2.good()) {
     std::cout << "[  SKIPPED ] File not found : sample_data/yeast_col26/yeast_expression_col26_over15.csv" << std::endl;
     return;

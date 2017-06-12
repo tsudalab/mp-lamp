@@ -64,7 +64,7 @@ TEST(DatabaseReductionTest, SimpleReduceTest) {
 
   {
     std::ifstream ifs1;
-    ifs1.open("../../../samples/sample_data/sample_item.csv", std::ios::in);
+    ifs1.open("../samples/sample_data/sample_item.csv", std::ios::in);
     // read file into uint64 * array and prepare database
     reader.ReadItems(ifs1, &nu_trans, &nu_items, &bsh,
                      &data, item_names, transaction_names, &max_item_in_transaction);
@@ -76,7 +76,7 @@ TEST(DatabaseReductionTest, SimpleReduceTest) {
 
   {
     std::ifstream ifs2;
-    ifs2.open("../../../samples/sample_data/sample_expression_over1.csv", std::ios::in);
+    ifs2.open("../samples/sample_data/sample_expression_over1.csv", std::ios::in);
     // read positives into uint64 * array and prepare database
     reader.ReadPosNeg(ifs2, nu_trans, transaction_names,
                       &nu_pos_total, bsh, &positive, &pos_val, false);

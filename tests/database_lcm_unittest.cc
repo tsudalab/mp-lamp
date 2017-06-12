@@ -60,7 +60,7 @@ TEST (DatabaseLCMTest, LCMOutTest1) {
   DatabaseReader<uint64> reader;
 
   std::ifstream ifs1;
-  ifs1.open("../../../samples/sample_data/sample_item.csv", std::ios::in);
+  ifs1.open("../samples/sample_data/sample_item.csv", std::ios::in);
   reader.ReadFiles(&bsh,
                    ifs1, &data, &nu_trans, &nu_items,
                    item_names, transaction_names, &max_item_in_transaction);

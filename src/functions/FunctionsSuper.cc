@@ -33,6 +33,8 @@
 
 #include "FunctionsSuper.h"
 
+const double FunctionsSuper::pi2 = 0.398942280401432677940; /**< constant value */
+
 /**
  * Constructor
  * @param alternative hypothesis, 1 -> greater, 0 -> two sided, -1 -> less

@@ -132,8 +132,8 @@ TEST (LCMTest, SampleDataTest) {
 
 TEST (LCMTest, ToyDataTest) {
   std::ifstream ifs1, ifs2;
-  ifs1.open("../../../samples/sample_data/sample_item.csv");
-  ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
+  ifs1.open("../samples/sample_data/sample_item.csv");
+  ifs2.open("../samples/sample_data/sample_expression_over1.csv");
   Functions4fisher functions(1);
   Table t(ifs1, ifs2, functions);
   ifs1.close();

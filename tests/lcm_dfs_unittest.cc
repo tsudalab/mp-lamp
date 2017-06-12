@@ -44,8 +44,8 @@ using namespace lamp_search;
 
 TEST (LCM_DFSTest, TopKInitTest) {
   std::ifstream ifs1, ifs2;
-  ifs1.open("../../../samples/sample_data/sample_item.csv");
-  ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
+  ifs1.open("../samples/sample_data/sample_item.csv");
+  ifs2.open("../samples/sample_data/sample_expression_over1.csv");
   Functions4fisher functions(1);
   Table t(ifs1, ifs2, functions);
   ifs1.close();
@@ -67,8 +67,8 @@ TEST (LCM_DFSTest, TopKInitTest) {
 
 TEST (LCM_DFSTest, TopKInitInsert) {
   std::ifstream ifs1, ifs2;
-  ifs1.open("../../../samples/sample_data/sample_item.csv");
-  ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
+  ifs1.open("../samples/sample_data/sample_item.csv");
+  ifs2.open("../samples/sample_data/sample_expression_over1.csv");
   Functions4fisher functions(1);
   Table t(ifs1, ifs2, functions);
   ifs1.close();
@@ -119,8 +119,8 @@ TEST (LCM_DFSTest, TopKInitInsert) {
 
 TEST (LCM_DFSTest, SmallSearchTest) {
   std::ifstream ifs1, ifs2;
-  ifs1.open("../../../samples/sample_data/sample_item.csv");
-  ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
+  ifs1.open("../samples/sample_data/sample_item.csv");
+  ifs2.open("../samples/sample_data/sample_expression_over1.csv");
   Functions4fisher functions(1);
   Table t(ifs1, ifs2, functions);
   ifs1.close();

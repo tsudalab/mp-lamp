@@ -65,7 +65,7 @@ TEST (DatabaseTest, ReadTest) {
 
   {
     std::ifstream ifs1;
-    ifs1.open("../../../samples/sample_data/sample_item.csv", std::ios::in);
+    ifs1.open("../samples/sample_data/sample_item.csv", std::ios::in);
     // read file into uint64 * array and prepare database
     reader.ReadItems(ifs1, &nu_trans, &nu_items, &bsh,
                      &data, item_names, transaction_names, &max_item_in_transaction);
@@ -77,7 +77,7 @@ TEST (DatabaseTest, ReadTest) {
 
   {
     std::ifstream ifs2;
-    ifs2.open("../../../samples/sample_data/sample_expression_over1.csv", std::ios::in);
+    ifs2.open("../samples/sample_data/sample_expression_over1.csv", std::ios::in);
     // read positives into uint64 * array and prepare database
     reader.ReadPosNeg(ifs2, nu_trans, transaction_names,
                       &nu_pos_total, bsh, &positive, &pos_val, false);
@@ -152,9 +152,9 @@ TEST (DatabaseTest, ReadTest2) {
   DatabaseReader<uint64> reader;
 
   std::ifstream ifs1;
-  ifs1.open("../../../samples/sample_data/sample_item.csv", std::ios::in);
+  ifs1.open("../samples/sample_data/sample_item.csv", std::ios::in);
   std::ifstream ifs2;
-  ifs2.open("../../../samples/sample_data/sample_expression_over1.csv", std::ios::in);
+  ifs2.open("../samples/sample_data/sample_expression_over1.csv", std::ios::in);
 
   reader.ReadFiles(&bsh,
                    ifs1, &data, &nu_trans, &nu_items,
@@ -242,7 +242,7 @@ TEST (DatabaseTest, LargeReadTest) {
 
   {
     std::ifstream ifs1;
-    ifs1.open("../../../samples/sample_data/yeast_col26/tfsite_both_col26.csv", std::ios::in);
+    ifs1.open("../samples/sample_data/yeast_col26/tfsite_both_col26.csv", std::ios::in);
     if (!ifs1.good()) {
       std::cout << "[  SKIPPED ] File not found : sample_data/yeast_col26/tfsite_both_col26.csv" << std::endl;
       return;
@@ -258,7 +258,7 @@ TEST (DatabaseTest, LargeReadTest) {
 
   {
     std::ifstream ifs2;
-    ifs2.open("../../../samples/sample_data/yeast_col26/yeast_expression_col26_over15.csv",
+    ifs2.open("../samples/sample_data/yeast_col26/yeast_expression_col26_over15.csv",
               std::ios::in);
     if (!ifs2.good()) {
       std::cout << "[  SKIPPED ] File not found : sample_data/yeast_col26/yeast_expression_col26_over15.csv" << std::endl;
@@ -317,7 +317,7 @@ TEST (DatabaseTest, PValueTest) {
 
   {
     std::ifstream ifs1;
-    ifs1.open("../../../samples/sample_data/sample_item.csv", std::ios::in);
+    ifs1.open("../samples/sample_data/sample_item.csv", std::ios::in);
     // read file into uint64 * array and prepare database
     reader.ReadItems(ifs1, &nu_trans, &nu_items, &bsh,
                      &data, item_names, transaction_names, &max_item_in_transaction);
@@ -329,7 +329,7 @@ TEST (DatabaseTest, PValueTest) {
 
   {
     std::ifstream ifs2;
-    ifs2.open("../../../samples/sample_data/sample_expression_over1.csv", std::ios::in);
+    ifs2.open("../samples/sample_data/sample_expression_over1.csv", std::ios::in);
     // read positives into uint64 * array and prepare database
     reader.ReadPosNeg(ifs2, nu_trans, transaction_names,
                       &nu_pos_total, bsh, &positive, &pos_val, false);
@@ -437,13 +437,13 @@ TEST (DatabaseTest, PValueTest2) {
   // $ ./lamp3 --item ../../../samples/alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_item.csv --pos ../../../samples/alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_value.csv --a 0.05 --show_progress --nosecond_phase --nothird_phase
 
   std::ifstream ifs1;
-  ifs1.open("../../../samples/alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_item.csv", std::ios::in);
+  ifs1.open("../samples/alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_item.csv", std::ios::in);
   if (!ifs1.good()) {
     std::cout << "[  SKIPPED ] File not found : alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_item.csv" << std::endl;
     return;
   }
   std::ifstream ifs2;
-  ifs2.open("../../../samples/alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_value.csv", std::ios::in);
+  ifs2.open("../samples/alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_value.csv", std::ios::in);
   if (!ifs2.good()) {
     std::cout << "[  SKIPPED ] File not found : alzheimer_Webster2009/alzheimer_Webster2009_SNPrec_upper05_value.csv" << std::endl;
     return;
@@ -499,7 +499,7 @@ TEST (DatabaseTest, PMinTestNoPos) {
 
   {
     std::ifstream ifs1;
-    ifs1.open("../../../samples/sample_data/sample_item.csv", std::ios::in);
+    ifs1.open("../samples/sample_data/sample_item.csv", std::ios::in);
     // read file into uint64 * array and prepare database
     reader.ReadItems(ifs1, &nu_trans, &nu_items, &bsh,
                      &data, item_names, transaction_names, &max_item_in_transaction);

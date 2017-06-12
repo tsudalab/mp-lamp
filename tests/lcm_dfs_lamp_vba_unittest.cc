@@ -48,8 +48,8 @@ using namespace lamp_search;
 
 TEST (LCM_DFS_LAMP_VBA_Test, SmallSearchTest) {
   std::ifstream ifs1, ifs2;
-  ifs1.open("../../../samples/sample_data/sample_item.csv");
-  ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
+  ifs1.open("../samples/sample_data/sample_item.csv");
+  ifs2.open("../samples/sample_data/sample_expression_over1.csv");
   Functions4fisher functions(1);
   TableVBA<uint64> t(ifs1, ifs2, functions);
   ifs1.close();
@@ -65,8 +65,8 @@ TEST (LCM_DFS_LAMP_VBA_Test, SmallSearchTest) {
 
 TEST (LCM_DFS_LAMP_VBA_Test, SmallSingleSearchTest) {
   std::ifstream ifs1, ifs2;
-  ifs1.open("../../../samples/sample_data/sample_item.csv");
-  ifs2.open("../../../samples/sample_data/sample_expression_over1.csv");
+  ifs1.open("../samples/sample_data/sample_item.csv");
+  ifs2.open("../samples/sample_data/sample_expression_over1.csv");
   Functions4fisher functions(1);
   TableVBA<uint64> t(ifs1, ifs2, functions);
   ifs1.close();
@@ -85,8 +85,8 @@ TEST (LCM_DFS_LAMP_VBA_Test, SmallSingleSearchTest) {
 //   // $ ./lcm_dfs_lamp_vba --item ../samples/sample_data/yeast_col26/tfsite_both_col26.csv --pos ../samples/sample_data/yeast_col26/yeast_expression_col26_over15.csv --a 0.05 --threshold_init 12 --show_progress > t2h.txt
 
 //   std::ifstream ifs1, ifs2;
-//   ifs1.open("../../../samples/sample_data/yeast_col26/tfsite_both_col26.csv");
-//   ifs2.open("../../../samples/sample_data/yeast_col26/yeast_expression_col26_over15.csv");
+//   ifs1.open("../samples/sample_data/yeast_col26/tfsite_both_col26.csv");
+//   ifs2.open("../samples/sample_data/yeast_col26/yeast_expression_col26_over15.csv");
 //   TableVBA<uint64> t(ifs1, ifs2);
 //   ifs1.close();
 //   ifs2.close();
