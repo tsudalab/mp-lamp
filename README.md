@@ -101,6 +101,8 @@ For 32 processes,
 $ mpiexec -hostfile ${machinefile} -np 32 ./mp-lamp --item item_file.csv --pos positive_file.csv --a 0.05 --show_progress --log
 	* --item: item data file
 	* -pos: positive data file
+	* -p {"fisher", "chi", "u\_test"}: This option selects the statistical test from Fisher's exact test ("fisher"), chi-squared test ("chi"), and "Mann-Whitney U-test ("u\_test"). The default setting is "fisher".
+	* --alternative {"greater", "less", "two.sided"}: This option indicates which alternative hypothesis is used. The default setting is "greater".
 	* --a: significance level (default 0.05)
 	* --show_progress:
 	    It is adivsed to turn on show_progress for long jobs.
@@ -161,7 +163,7 @@ O,0
 ## Sample usage and output
 
 * Sample command and output of the 2-process parallel version solving the toy
-  data. Do not forget to invoke the command using "mpiexec" or "mpirun".
+  data. Do not forget to invoke the command using `mpiexec` or `mpirun`.
 
 ```text
 $ mpiexec -np 2 ./mp-lamp --item ./samples/sample_data/sample_item.csv --pos ./samples/sample_data/sample_expression_over1.csv --a 0.05 --show_progress
