@@ -50,10 +50,14 @@ if config.has_option('compilers', 'libs'):
         orig_env.Append(LIBS=[lib])
 if config.has_option('paths', 'include'):
     print config.get('paths', 'include')
-    orig_env.Append(CPPPATH=[Dir(config.get('paths', 'include'))])
+    inc_str_list = config.get('paths', 'include').split()
+    for inc in inc_str_list:
+        orig_env.Append(CPPPATH=[Dir([inc])])
 if config.has_option('paths', 'library'):
     print config.get('paths', 'library')
-    orig_env.Append(LIBPATH=[Dir(config.get('paths', 'library'))])
+    libs_str_list = config.get('paths', 'library').split()
+    for lib in libs_str_list:
+        orig_env.Append(LIBPATH=[Dir([lib])])
 
 debug = ARGUMENTS.get('debug', 0)
 log = ARGUMENTS.get('log', 0)
