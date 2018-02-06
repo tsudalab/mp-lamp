@@ -74,7 +74,7 @@ DECLARE_int32(max_sig_size); // 0, "maximum size of significant item set. If 0, 
 
 DEFINE_int32(sig_max, 1024*1024*64, "stack size for holding significant sets");
 
-DEFINE_int32(bsend_buffer_size, 1024*1024*64, "size of bsend buffer");
+// DEFINE_int32(bsend_buffer_size, 1024*1024*64, "size of bsend buffer");
 
 DEFINE_int32(d, 0, "debug level. 0: none, higher level produce more log");
 DEFINE_string(debuglogfile, "d", "base filename for debug log");
@@ -95,8 +95,7 @@ const long long int MP_LAMP::k_cs_max =
 const int MP_LAMP::k_probe_period = 128;
 
 MP_LAMP::MP_LAMP(int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m)
-    : bsend_buffer_ (NULL),
-      h_(rank),
+    : h_(rank),
       p_(nu_proc),
       n_(n),
       n_is_ms_ (n_is_ms),
@@ -171,12 +170,12 @@ MP_LAMP::MP_LAMP(int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m
     DBG( lfs_.open(log_file_name_.c_str(), std::ios::out); );
   }
 
-  bsend_buffer_ = new int[FLAGS_bsend_buffer_size];
+  // bsend_buffer_ = new int[FLAGS_bsend_buffer_size];
 
-  int ret = MPI_Buffer_attach(bsend_buffer_, FLAGS_bsend_buffer_size * sizeof(int));
-  if (ret != MPI_SUCCESS) {
-    throw std::bad_alloc();
-  }
+  // int ret = MPI_Buffer_attach(bsend_buffer_, FLAGS_bsend_buffer_size * sizeof(int));
+  // if (ret != MPI_SUCCESS) {
+  //   throw std::bad_alloc();
+  // }
 
   // note: should remove victim if in lifeline ???
   victims_ = new int[m_];
@@ -322,9 +321,9 @@ MP_LAMP::~MP_LAMP() {
 
   if (bsh_) delete bsh_;
   int size;
-  MPI_Buffer_detach(&bsend_buffer_, &size);
-  assert(size == FLAGS_bsend_buffer_size * sizeof(int));
-  if (bsend_buffer_) delete bsend_buffer_;
+  // MPI_Buffer_detach(&bsend_buffer_, &size);
+  // assert(size == FLAGS_bsend_buffer_size * sizeof(int));
+  // if (bsend_buffer_) delete bsend_buffer_;
 
   DBG( D(2) << "MP_LAMP destructor end" << std::endl; );
   if (FLAGS_d > 0) {
@@ -730,7 +729,7 @@ void MP_LAMP::SendDTDRequest() {
 
   for (int i=0;i<k_echo_tree_branch;i++) {
     if (bcast_targets_[i] < 0) break;
-    CallBsend(message, 1, MPI_INT, bcast_targets_[i], Tag::DTD_REQUEST);
+    CallSend(message, 1, MPI_INT, bcast_targets_[i], Tag::DTD_REQUEST);
     DBG( D(3) << "SendDTDRequest: dst=" << bcast_targets_[i]
          << "\ttimezone=" << dtd_.time_zone_
          << std::endl; );
@@ -779,7 +778,7 @@ void MP_LAMP::SendDTDReply() {
        << "\tem=" << em_flag
        << std::endl; );
 
-  CallBsend(message, 3, MPI_INT, bcast_source_, Tag::DTD_REPLY);
+  CallSend(message, 3, MPI_INT, bcast_source_, Tag::DTD_REPLY);
 
   dtd_.time_warp_ = false;
   dtd_.not_empty_ = false;
@@ -834,7 +833,7 @@ void MP_LAMP::SendDTDAccumRequest() {
 
   for (int i=0;i<k_echo_tree_branch;i++) {
     if (bcast_targets_[i] < 0) break;
-    CallBsend(message, 1, MPI_INT, bcast_targets_[i], Tag::DTD_ACCUM_REQUEST);
+    CallSend(message, 1, MPI_INT, bcast_targets_[i], Tag::DTD_ACCUM_REQUEST);
 
     DBG( D(3) << "SendDTDAccumRequest: dst=" << bcast_targets_[i]
          << "\ttimezone=" << dtd_.time_zone_
@@ -875,8 +874,8 @@ void MP_LAMP::SendDTDAccumReply() {
        << "\tem=" << em_flag
        << std::endl; );
 
-  CallBsend(dtd_accum_array_base_, lambda_max_+4, MPI_LONG_LONG_INT,
-            bcast_source_, Tag::DTD_ACCUM_REPLY);
+  CallSend(dtd_accum_array_base_, lambda_max_+4, MPI_LONG_LONG_INT,
+           bcast_source_, Tag::DTD_ACCUM_REPLY);
 
   dtd_.time_warp_ = false;
   dtd_.not_empty_ = false;
@@ -970,7 +969,7 @@ void MP_LAMP::SendBcastFinish() {
 
   for (int i=0;i<k_echo_tree_branch;i++) {
     if (bcast_targets_[i] < 0) break;
-    CallBsend(message, 1, MPI_INT, bcast_targets_[i], Tag::BCAST_FINISH);
+    CallSend(message, 1, MPI_INT, bcast_targets_[i], Tag::BCAST_FINISH);
   }
 }
 
@@ -1909,7 +1908,7 @@ void MP_LAMP::SendRequest(int dst, int is_lifeline) {
   message[0] = dtd_.time_zone_;
   message[1] = is_lifeline; // -1 for random thieves, >=0 for lifeline thieves
 
-  CallBsend(message, 2, MPI_INT, dst, Tag::REQUEST);
+  CallSend(message, 2, MPI_INT, dst, Tag::REQUEST);
   dtd_.OnSend();
 
   DBG( D(2) << "SendRequest: dst=" << dst
@@ -1956,7 +1955,7 @@ void MP_LAMP::SendReject(int dst) {
   int message[1];
 
   message[0] = dtd_.time_zone_;
-  CallBsend(message, 1, MPI_INT, dst, Tag::REJECT);
+  CallSend(message, 1, MPI_INT, dst, Tag::REJECT);
   dtd_.OnSend();
 
   DBG( D(2) << "SendReject: dst=" << dst
@@ -1995,7 +1994,7 @@ void MP_LAMP::SendGive(VariableLengthItemsetStack * st, int dst, int is_lifeline
   log_.d_.give_stack_max_cap_ =
       std::max(log_.d_.give_stack_max_cap_, (long long int)(st->UsedCapacity()));
 
-  CallBsend(message, size, MPI_INT, dst, Tag::GIVE);
+  CallSend(message, size, MPI_INT, dst, Tag::GIVE);
   dtd_.OnSend();
 
   DBG( D(2) << "SendGive: "
@@ -2078,7 +2077,7 @@ void MP_LAMP::SendLambda(int lambda) {
 
   for (int i=0;i<k_echo_tree_branch;i++) {
     if (bcast_targets_[i] < 0) break;
-    CallBsend(message, 2, MPI_INT, bcast_targets_[i], Tag::LAMBDA);
+    CallSend(message, 2, MPI_INT, bcast_targets_[i], Tag::LAMBDA);
     dtd_.OnSend();
 
     DBG( D(2) << "SendLambda: dst=" << bcast_targets_[i]
@@ -2165,7 +2164,7 @@ void MP_LAMP::SendResultRequest() {
 
   for (int i=0;i<k_echo_tree_branch;i++) {
     if (bcast_targets_[i] < 0) break;
-    CallBsend(message, 1, MPI_INT, bcast_targets_[i], Tag::RESULT_REQUEST);
+    CallSend(message, 1, MPI_INT, bcast_targets_[i], Tag::RESULT_REQUEST);
     DBG( D(2) << "SendResultRequest: dst=" << bcast_targets_[i]
          << std::endl; );
   }
@@ -2187,7 +2186,7 @@ void MP_LAMP::SendResultReply() {
   int * message = final_significant_stack_->Message();
   int size = final_significant_stack_->MessageSize();
 
-  CallBsend(message, size, MPI_INT, bcast_source_, Tag::RESULT_REPLY);
+  CallSend(message, size, MPI_INT, bcast_source_, Tag::RESULT_REPLY);
 
   DBG( D(2) << "SendResultReply: dst=" << bcast_source_
        << std::endl; );
@@ -2961,19 +2960,19 @@ int MP_LAMP::CallRecv(void * buffer, int data_count, MPI_Datatype type,
   return error;
 }
 
-int MP_LAMP::CallBsend(void * buffer, int data_count, MPI_Datatype type,
-                       int dest, int tag) {
+int MP_LAMP::CallSend(void * buffer, int data_count, MPI_Datatype type,
+                      int dest, int tag) {
   long long int start_time;
   long long int end_time;
-  log_.d_.bsend_num_++;
+  log_.d_.send_num_++;
   start_time = timer_->Elapsed();
 
-  int error = MPI_Bsend(buffer, data_count, type, dest, tag, MPI_COMM_WORLD);
+  int error = MPI_Send(buffer, data_count, type, dest, tag, MPI_COMM_WORLD);
 
   end_time = timer_->Elapsed();
-  log_.d_.bsend_time_ += end_time - start_time;
-  log_.d_.bsend_time_max_ =
-      std::max(end_time - start_time, log_.d_.bsend_time_max_);
+  log_.d_.send_time_ += end_time - start_time;
+  log_.d_.send_time_max_ =
+      std::max(end_time - start_time, log_.d_.send_time_max_);
   return error;
 }
 
@@ -3219,19 +3218,19 @@ std::ostream & MP_LAMP::PrintAggrLog(std::ostream & out) {
       << "(ms)" << std::endl;
       );
 
-  s << "# bsend_num         ="
-    << std::setw(16) << log_.d_.bsend_num_
-    << std::setw(16) << log_.a_.bsend_num_ // sum
-    << std::setw(16) << log_.a_.bsend_num_ / p_ // avg
+  s << "# send_num         ="
+    << std::setw(16) << log_.d_.send_num_
+    << std::setw(16) << log_.a_.send_num_ // sum
+    << std::setw(16) << log_.a_.send_num_ / p_ // avg
     << std::endl;
-  s << "# bsend_time        ="
-    << std::setw(16) << log_.d_.bsend_time_ / MEGA
-    << std::setw(16) << log_.a_.bsend_time_ / MEGA // sum
-    << std::setw(16) << log_.a_.bsend_time_ / MEGA / p_ // avg
+  s << "# send_time        ="
+    << std::setw(16) << log_.d_.send_time_ / MEGA
+    << std::setw(16) << log_.a_.send_time_ / MEGA // sum
+    << std::setw(16) << log_.a_.send_time_ / MEGA / p_ // avg
     << "(ms)" << std::endl;
-  s << "# bsend_time_max    ="
-    << std::setw(16) << log_.d_.bsend_time_max_ / MEGA
-    << std::setw(16) << log_.a_.bsend_time_max_ / MEGA // max
+  s << "# send_time_max    ="
+    << std::setw(16) << log_.d_.send_time_max_ / MEGA
+    << std::setw(16) << log_.a_.send_time_max_ / MEGA // max
     << "(ms)" << std::endl;
 
   s << "# bcast_num         ="
@@ -3558,14 +3557,14 @@ std::ostream & MP_LAMP::PrintLog(std::ostream & out) const {
       << "(ms)" << std::endl;
       );
 
-  s << "# bsend_num         ="
-    << std::setw(16) << log_.d_.bsend_num_
+  s << "# send_num         ="
+    << std::setw(16) << log_.d_.send_num_
     << std::endl;
-  s << "# bsend_time        ="
-    << std::setw(16) << log_.d_.bsend_time_ / MEGA
+  s << "# send_time        ="
+    << std::setw(16) << log_.d_.send_time_ / MEGA
     << "(ms)" << std::endl;
-  s << "# bsend_time_max    ="
-    << std::setw(16) << log_.d_.bsend_time_max_ / MEGA
+  s << "# send_time_max    ="
+    << std::setw(16) << log_.d_.send_time_max_ / MEGA
     << "(ms)" << std::endl;
 
   s << "# bcast_num         ="
@@ -3768,9 +3767,9 @@ void MP_LAMP::Log::LogData::Init() {
   recv_time_ = 0ll;
   recv_time_max_ = 0ll;
 
-  bsend_num_ = 0ll;
-  bsend_time_ = 0ll;
-  bsend_time_max_ = 0ll;
+  send_num_ = 0ll;
+  send_time_ = 0ll;
+  send_time_max_ = 0ll;
 
   bcast_num_ = 0ll;
   bcast_time_ = 0ll;
@@ -3847,10 +3846,10 @@ void MP_LAMP::Log::Aggregate(int nu_proc) {
     a_.recv_time_max_ =
         std::max(a_.recv_time_max_, gather_buf_[i].recv_time_max_);
 
-    a_.bsend_num_ += gather_buf_[i].bsend_num_;
-    a_.bsend_time_ += gather_buf_[i].bsend_time_;
-    a_.bsend_time_max_ =
-        std::max(a_.bsend_time_max_, gather_buf_[i].bsend_time_max_);
+    a_.send_num_ += gather_buf_[i].send_num_;
+    a_.send_time_ += gather_buf_[i].send_time_;
+    a_.send_time_max_ =
+        std::max(a_.send_time_max_, gather_buf_[i].send_time_max_);
 
     a_.bcast_num_ += gather_buf_[i].bcast_num_;
     a_.bcast_time_ += gather_buf_[i].bcast_time_;

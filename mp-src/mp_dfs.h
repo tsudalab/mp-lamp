@@ -328,9 +328,9 @@ class MP_LAMP {
       long long int recv_time_;
       long long int recv_time_max_;
 
-      long long int bsend_num_;
-      long long int bsend_time_;
-      long long int bsend_time_max_;
+      long long int send_num_;
+      long long int send_time_;
+      long long int send_time_max_;
 
       long long int bcast_num_;
       long long int bcast_time_;
@@ -408,7 +408,7 @@ class MP_LAMP {
 
   static const int k_probe_period;
 
-  int * bsend_buffer_;
+  // int * bsend_buffer_;
 
   // GLB variables
 
@@ -886,8 +886,8 @@ class MP_LAMP {
 
   int CallRecv(void * buffer, int count, MPI_Datatype type,
                int src, int tag, MPI_Status * status);
-  int CallBsend(void * buffer, int count_int, MPI_Datatype type,
-                int dest, int tag);
+  int CallSend(void * buffer, int count_int, MPI_Datatype type,
+               int dest, int tag);
 
   int CallBcast(void * buffer, int data_count, MPI_Datatype type);
   // todo: implement call reduce, call gather
