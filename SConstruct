@@ -27,10 +27,11 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import print_function
+
 import os
 import commands
 import ConfigParser
-
 
 # todo: set compiler name (CXX) by command line options
 # default values for CXX are g++ and mpicxx
@@ -41,20 +42,20 @@ config.read('local.cfg')
 orig_env = Environment(ENV=os.environ)
 
 if config.has_option('compilers', 'option'):
-    print config.get('compilers', 'option')
+    print( config.get('compilers', 'option') )
     orig_env.Append(CXXFLAGS=config.get('compilers', 'option'))
 if config.has_option('compilers', 'libs'):
-    print config.get('compilers', 'libs')
+    print( config.get('compilers', 'libs') )
     libs_str_list = config.get('compilers', 'libs').split()
     for lib in libs_str_list:
         orig_env.Append(LIBS=[lib])
 if config.has_option('paths', 'include'):
-    print config.get('paths', 'include')
+    print( config.get('paths', 'include') )
     inc_str_list = config.get('paths', 'include').split()
     for inc in inc_str_list:
         orig_env.Append(CPPPATH=[Dir([inc])])
 if config.has_option('paths', 'library'):
-    print config.get('paths', 'library')
+    print( config.get('paths', 'library') )
     libs_str_list = config.get('paths', 'library').split()
     for lib in libs_str_list:
         orig_env.Append(LIBPATH=[Dir([lib])])
