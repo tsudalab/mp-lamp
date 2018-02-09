@@ -74,6 +74,7 @@ DECLARE_int32(max_sig_size); // 0, "maximum size of significant item set. If 0, 
 
 DEFINE_int32(sig_max, 1024*1024*64, "stack size for holding significant sets");
 
+DEFINE_bool(use_bsend, false, "use bsend");
 DEFINE_int32(bsend_buffer_size, 1024*1024*64, "size of bsend buffer");
 
 DEFINE_int32(d, 0, "debug level. 0: none, higher level produce more log");
@@ -171,11 +172,12 @@ MP_LAMP::MP_LAMP(int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m
     DBG( lfs_.open(log_file_name_.c_str(), std::ios::out); );
   }
 
-  bsend_buffer_ = new int[FLAGS_bsend_buffer_size];
-
-  int ret = MPI_Buffer_attach(bsend_buffer_, FLAGS_bsend_buffer_size * sizeof(int));
-  if (ret != MPI_SUCCESS) {
-    throw std::bad_alloc();
+  if (FLAGS_use_bsend) {
+    bsend_buffer_ = new int[FLAGS_bsend_buffer_size];
+    int ret = MPI_Buffer_attach(bsend_buffer_, FLAGS_bsend_buffer_size * sizeof(int));
+    if (ret != MPI_SUCCESS) {
+      throw std::bad_alloc();
+    }
   }
 
   // note: should remove victim if in lifeline ???
@@ -321,10 +323,13 @@ MP_LAMP::~MP_LAMP() {
   if (g_) delete g_;
 
   if (bsh_) delete bsh_;
-  int size;
-  MPI_Buffer_detach(&bsend_buffer_, &size);
-  assert(size == FLAGS_bsend_buffer_size * sizeof(int));
-  if (bsend_buffer_) delete bsend_buffer_;
+
+  if (FLAGS_use_bsend) {
+    int size;
+    MPI_Buffer_detach(&bsend_buffer_, &size);
+    assert(size == FLAGS_bsend_buffer_size * sizeof(int));
+    if (bsend_buffer_) delete bsend_buffer_;
+  }
 
   DBG( D(2) << "MP_LAMP destructor end" << std::endl; );
   if (FLAGS_d > 0) {
@@ -2968,7 +2973,12 @@ int MP_LAMP::CallBsend(void * buffer, int data_count, MPI_Datatype type,
   log_.d_.bsend_num_++;
   start_time = timer_->Elapsed();
 
-  int error = MPI_Bsend(buffer, data_count, type, dest, tag, MPI_COMM_WORLD);
+  int error;
+  if (FLAGS_use_bsend) {
+    error = MPI_Bsend(buffer, data_count, type, dest, tag, MPI_COMM_WORLD);
+  } else {
+    error = MPI_Send(buffer, data_count, type, dest, tag, MPI_COMM_WORLD);
+  }
 
   end_time = timer_->Elapsed();
   log_.d_.bsend_time_ += end_time - start_time;
@@ -3219,18 +3229,21 @@ std::ostream & MP_LAMP::PrintAggrLog(std::ostream & out) {
       << "(ms)" << std::endl;
       );
 
-  s << "# bsend_num         ="
-    << std::setw(16) << log_.d_.bsend_num_
+  if (FLAGS_use_bsend) s << "# bsend_num         =";
+  else                 s << "# send_num          =";
+  s << std::setw(16) << log_.d_.bsend_num_
     << std::setw(16) << log_.a_.bsend_num_ // sum
     << std::setw(16) << log_.a_.bsend_num_ / p_ // avg
     << std::endl;
-  s << "# bsend_time        ="
-    << std::setw(16) << log_.d_.bsend_time_ / MEGA
+  if (FLAGS_use_bsend) s << "# bsend_time        =";
+  else                 s << "# send_time         =";
+  s << std::setw(16) << log_.d_.bsend_time_ / MEGA
     << std::setw(16) << log_.a_.bsend_time_ / MEGA // sum
     << std::setw(16) << log_.a_.bsend_time_ / MEGA / p_ // avg
     << "(ms)" << std::endl;
-  s << "# bsend_time_max    ="
-    << std::setw(16) << log_.d_.bsend_time_max_ / MEGA
+  if (FLAGS_use_bsend) s << "# bsend_time_max    =";
+  else                 s << "# send_time_max     =";
+  s << std::setw(16) << log_.d_.bsend_time_max_ / MEGA
     << std::setw(16) << log_.a_.bsend_time_max_ / MEGA // max
     << "(ms)" << std::endl;
 
@@ -3558,14 +3571,17 @@ std::ostream & MP_LAMP::PrintLog(std::ostream & out) const {
       << "(ms)" << std::endl;
       );
 
-  s << "# bsend_num         ="
-    << std::setw(16) << log_.d_.bsend_num_
+  if (FLAGS_use_bsend) s << "# bsend_num         =";
+  else                 s << "# send_num          =";
+  s << std::setw(16) << log_.d_.bsend_num_
     << std::endl;
-  s << "# bsend_time        ="
-    << std::setw(16) << log_.d_.bsend_time_ / MEGA
+  if (FLAGS_use_bsend) s << "# bsend_time        =";
+  else                 s << "# send_time         =";
+  s << std::setw(16) << log_.d_.bsend_time_ / MEGA
     << "(ms)" << std::endl;
-  s << "# bsend_time_max    ="
-    << std::setw(16) << log_.d_.bsend_time_max_ / MEGA
+  if (FLAGS_use_bsend) s << "# bsend_time_max    =";
+  else                 s << "# send_time_max     =";
+  s << std::setw(16) << log_.d_.bsend_time_max_ / MEGA
     << "(ms)" << std::endl;
 
   s << "# bcast_num         ="
