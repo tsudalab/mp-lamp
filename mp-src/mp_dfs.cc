@@ -76,6 +76,7 @@ DEFINE_int32(sig_max, 1024*1024*64, "stack size for holding significant sets");
 
 DEFINE_bool(use_bsend, false, "use bsend");
 DEFINE_int32(bsend_buffer_size, 1024*1024*64, "size of bsend buffer");
+DEFINE_bool(save_memory, false, "save memory by not sorting the results");
 
 DEFINE_int32(d, 0, "debug level. 0: none, higher level produce more log");
 DEFINE_string(debuglogfile, "d", "base filename for debug log");
