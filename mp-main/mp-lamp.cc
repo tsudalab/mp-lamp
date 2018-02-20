@@ -162,7 +162,8 @@ int main(int argc, char **argv) {
     try {
       // (int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m)
       //MP_LAMP search(rank, nu_proc, FLAGS_n, FLAGS_n_is_ms, FLAGS_w, FLAGS_l, FLAGS_m);
-      search = new MP_LAMP(rank, nu_proc, FLAGS_n, FLAGS_n_is_ms, FLAGS_w, FLAGS_l, FLAGS_m);
+      search = new MP_LAMP(rank, nu_proc, FLAGS_n, FLAGS_n_is_ms, FLAGS_w, FLAGS_l, FLAGS_m,
+                           std::cout);
     } catch(std::bad_alloc& exc) {
       std::cout << "MP_LAMP constructor at rank: " << rank
                 << "\tbad_alloc caught: " << exc.what() << std::endl;

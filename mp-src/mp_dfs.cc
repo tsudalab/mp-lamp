@@ -96,7 +96,8 @@ const long long int MP_LAMP::k_cs_max =
 
 const int MP_LAMP::k_probe_period = 128;
 
-MP_LAMP::MP_LAMP(int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m)
+MP_LAMP::MP_LAMP(int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m,
+                 std::ostream & out)
     : bsend_buffer_ (NULL),
       h_(rank),
       p_(nu_proc),
@@ -142,6 +143,7 @@ MP_LAMP::MP_LAMP(int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m
       final_closed_set_num_ (0ll),
       final_support_ (0),
       final_sig_level_ (0.0),
+      result_out_ (out),
       last_bcast_was_dtd_ (false)
 {
 
@@ -375,7 +377,7 @@ void MP_LAMP::InitDatabaseRoot(std::istream & is1, std::istream & is2,
                        functions.isReverse());
     }
 
-    counters[0] = (int)(bsh_->nu_bits);
+    counters[0] = (int)(bsh_->nu_bits_);
     counters[1] = nu_trans;
     counters[2] = nu_items;
     counters[3] = nu_pos_total;
@@ -436,7 +438,7 @@ void MP_LAMP::InitDatabaseRoot(std::istream & is1, int posnum,
                        item_names, transaction_names, &max_item_in_transaction);
     }
 
-    counters[0] = (int)(bsh_->nu_bits);
+    counters[0] = (int)(bsh_->nu_bits_);
     counters[1] = nu_trans;
     counters[2] = nu_items;
     counters[3] = nu_pos_total;
@@ -2193,6 +2195,10 @@ void MP_LAMP::SendResultReply() {
   int * message = final_significant_stack_->Message();
   int size = final_significant_stack_->MessageSize();
 
+  // if (FLAGS_save_memory) {
+  //   hoge;
+  // }
+
   CallBsend(message, size, MPI_INT, bcast_source_, Tag::RESULT_REPLY);
 
   DBG( D(2) << "SendResultReply: dst=" << bcast_source_
@@ -2839,6 +2845,10 @@ void MP_LAMP::MainLoop() {
   } else if (phase_ == 3) {
     ExtractSignificantSet();
     if (h_==0) SendResultRequest();
+
+    // if (FLAGS_save_memory) {
+    //   hoge;
+    // }
 
     while(!dtd_.terminated_) Probe();
   }

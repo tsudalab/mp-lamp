@@ -199,7 +199,10 @@ class VariableBitsetHelper {
  public:
   typedef VariableBitsetTraits<Block> traits;
 
-  VariableBitsetHelper(std::size_t n) : nu_bits(n) {}
+  VariableBitsetHelper(std::size_t n)
+      : nu_bits_(n),
+        nu_blocks_(traits::calc_nu_blocks(nu_bits_))
+  {}
 
   // allocate single bitset
   Block * New() const;
@@ -270,17 +273,18 @@ class VariableBitsetHelper {
 
   void InitFromString(const std::string & str, Block * elm) const;
 
-  std::size_t NuBits() const { return nu_bits; }
-  std::size_t NuBlocks() const { return traits::calc_nu_blocks(nu_bits); }
+  std::size_t NuBits() const { return nu_bits_; }
+  std::size_t NuBlocks() const { return nu_blocks_; }
 
-  std::size_t nu_bits;
+  std::size_t nu_bits_;
+  std::size_t nu_blocks_;
 
  private:
 };
 
 template<typename Block>
 void VariableBitsetHelper<Block>::InitFromString(const std::string & str, Block * elm) const {
-  std::size_t pos = nu_bits - 1;
+  std::size_t pos = nu_bits_ - 1;
   
   for (std::size_t i=0 ; i<str.length() ; i++) {
     if (str[i] == '1') Doset(pos, elm);
@@ -294,7 +298,7 @@ std::ostream& VariableBitsetHelper<Block>::Print(std::ostream & out,
                                                  const Block * elm) const {
   std::stringstream s;
 
-  for (std::size_t i=nu_bits; i > 0; --i) {
+  for (std::size_t i=nu_bits_; i > 0; --i) {
     if (Test(elm, i-1)) s << "1";
     else s << "0";
   }
@@ -305,7 +309,7 @@ std::ostream& VariableBitsetHelper<Block>::Print(std::ostream & out,
 
 template<typename Block> inline
 Block * VariableBitsetHelper<Block>::New() const {
-  if (nu_bits == 0) return NULL;
+  if (nu_bits_ == 0) return NULL;
   Block * elm = new Block[ NuBlocks() ];
   for (std::size_t i=0;i<NuBlocks();i++) elm[i] = static_cast<Block>(0);
   return elm;
@@ -313,7 +317,7 @@ Block * VariableBitsetHelper<Block>::New() const {
 
 template<typename Block> inline
 Block * VariableBitsetHelper<Block>::NewArray(std::size_t size) const {
-  if (nu_bits == 0) return NULL;
+  if (nu_bits_ == 0) return NULL;
   if (size == 0) return NULL;
   Block * array = new Block[NuBlocks() * size];
   for (std::size_t i=0; i<NuBlocks()*size ;i++) array[i] = static_cast<Block>(0);
@@ -337,7 +341,7 @@ const Block * VariableBitsetHelper<Block>::N(const Block * array, std::size_t i)
 
 template<typename Block> inline
 Block * VariableBitsetHelper<Block>::Set(std::size_t pos, bool val, Block * elm) const {
-  assert(pos < nu_bits);
+  assert(pos < nu_bits_);
   if (val)
     Doset(pos, elm);
   else
@@ -364,7 +368,7 @@ void VariableBitsetHelper<Block>::Set(Block * elm) const {
     if (i==0) return;
     i--;
     elm[i] = ~(static_cast<Block>(0));
-    elm[i] &= traits::extra_bits_mask(nu_bits); // do sanitize
+    elm[i] &= traits::extra_bits_mask(nu_bits_); // do sanitize
   }
   while(true) {
     if (i==0) return;
@@ -386,7 +390,7 @@ std::size_t VariableBitsetHelper<Block>::FindFirst(const Block * src) const {
     if ( tmp != static_cast<Block>(0) )
       return (i * traits::bits_per_block + traits::ctz(tmp));
   }
-  return nu_bits; // not found
+  return nu_bits_; // not found
 }
 
 template<typename Block> inline
@@ -394,8 +398,8 @@ std::size_t VariableBitsetHelper<Block>::FindNext(const Block * src,
                                                   std::size_t prev_pos) const {
   prev_pos++; // increment
 
-  if (prev_pos >= nu_bits) 
-	return nu_bits; // not found
+  if (prev_pos >= nu_bits_) 
+	return nu_bits_; // not found
 
   std::size_t i = traits::block_index(prev_pos);
   { // first word
@@ -413,12 +417,12 @@ std::size_t VariableBitsetHelper<Block>::FindNext(const Block * src,
       return (i * traits::bits_per_block + traits::ctz(tmp));
   }
 
-  return nu_bits; // not found
+  return nu_bits_; // not found
 }
 
 template<typename Block> inline
 bool VariableBitsetHelper<Block>::Test(const Block * elm, std::size_t pos) const {
-  assert(pos < nu_bits);
+  assert(pos < nu_bits_);
   return (elm[traits::block_index(pos)] & traits::bit_mask(pos)) != 0;
 }
 
@@ -473,7 +477,7 @@ void VariableBitsetHelper<Block>::Flip(Block * elm) const {
     if (i==0) return;
     i--;
     elm[i] = ~(elm[i]);
-    elm[i] &= traits::extra_bits_mask(nu_bits); // do sanitize
+    elm[i] &= traits::extra_bits_mask(nu_bits_); // do sanitize
   }
   while(true) {
     if (i==0) return;
@@ -530,7 +534,7 @@ std::size_t VariableBitsetHelper<Block>::FlipCountUpdate(Block * elm) const {
     if (i==0) return count;
     i--;
     elm[i] = ~(elm[i]);
-    elm[i] &= traits::extra_bits_mask(nu_bits); // do sanitize
+    elm[i] &= traits::extra_bits_mask(nu_bits_); // do sanitize
     count += traits::pop_count(elm[i]);
   }
   while(true) {
@@ -595,7 +599,7 @@ std::size_t VariableBitsetHelper<Block>::FlipCount(const Block * elm) const {
     if (i==0) return count;
     i--;
     tmp = ~(elm[i]);
-    tmp &= traits::extra_bits_mask(nu_bits); // do sanitize
+    tmp &= traits::extra_bits_mask(nu_bits_); // do sanitize
     count += traits::pop_count(tmp);
   }
   while(true) {

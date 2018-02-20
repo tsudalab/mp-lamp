@@ -132,7 +132,8 @@ class MP_LAMP {
    * w: number of random victim tries
    * l: power of lifeline graph
    */
-  MP_LAMP(int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m);
+  MP_LAMP(int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m,
+          std::ostream & out);
 
   ~MP_LAMP();
 
@@ -908,6 +909,8 @@ class MP_LAMP {
 
   // static std::stringstream alert_ss;
   // std::ostream& Alert();
+
+  std::ostream & result_out_;
 
   //--------
   // testing [2015-10-01 13:54]
