@@ -63,6 +63,7 @@ DECLARE_bool(log); // false, "show log", mp-lamp.cc
 
 DECLARE_bool(second_phase); // true, "do second phase"
 DECLARE_bool(third_phase);  // true, "do third phase"
+DECLARE_bool(save_memory);  // true, "save memory by not sorting results"
 
 DEFINE_int32(n, 1000, "granularity of one Node process");
 DEFINE_bool(n_is_ms, true, "true: n is milli sec, false: n is num task");
@@ -251,8 +252,10 @@ int main(int argc, char **argv) {
                 << "\ttime search=" << std::setw(12)
                 << (search_end_time - search_start_time) / GIGA
                 << std::endl;
-    if (rank==0) {
+    if (rank==0 && !FLAGS_save_memory) {
       search->PrintResults(std::cout);
+    }
+    if (rank==0) {
       //if (FLAGS_log) search->PrintLog(std::cout);
       if (FLAGS_log) search->PrintAggrLog(std::cout);
       if (FLAGS_log) search->PrintAggrPLog(std::cout);

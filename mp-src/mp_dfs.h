@@ -787,6 +787,11 @@ class MP_LAMP {
     const VariableLengthItemsetStack & ss_;
   };
 
+  std::ostream & PrintResultsSaveMemory(std::ostream & out) const;
+  std::ostream & PrintSignificantSetSaveMemory(
+      std::ostream & out,
+      std::set<SignificantSetResult, sigset_compare> * set) const;
+
   /** record frequent enough itemset during 2nd phase (candidates for significant itemsets)
    *  (if third phase is enabled) */
   VariableLengthItemsetStack * freq_stack_; // record freq itemsets
@@ -911,6 +916,7 @@ class MP_LAMP {
   // std::ostream& Alert();
 
   std::ostream & result_out_;
+  int received_results_num_;
 
   //--------
   // testing [2015-10-01 13:54]
