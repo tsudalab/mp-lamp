@@ -3230,20 +3230,20 @@ std::ostream & MP_LAMP::PrintAggrLog(std::ostream & out) {
 
   if (FLAGS_use_bsend) s << "# bsend_num         =";
   else                 s << "# send_num          =";
-  s << std::setw(16) << log_.d_.bsend_num_
-    << std::setw(16) << log_.a_.bsend_num_ // sum
-    << std::setw(16) << log_.a_.bsend_num_ / p_ // avg
+  s << std::setw(16) << log_.d_.send_num_
+    << std::setw(16) << log_.a_.send_num_ // sum
+    << std::setw(16) << log_.a_.send_num_ / p_ // avg
     << std::endl;
   if (FLAGS_use_bsend) s << "# bsend_time        =";
   else                 s << "# send_time         =";
-  s << std::setw(16) << log_.d_.bsend_time_ / MEGA
-    << std::setw(16) << log_.a_.bsend_time_ / MEGA // sum
-    << std::setw(16) << log_.a_.bsend_time_ / MEGA / p_ // avg
+  s << std::setw(16) << log_.d_.send_time_ / MEGA
+    << std::setw(16) << log_.a_.send_time_ / MEGA // sum
+    << std::setw(16) << log_.a_.send_time_ / MEGA / p_ // avg
     << "(ms)" << std::endl;
   if (FLAGS_use_bsend) s << "# bsend_time_max    =";
   else                 s << "# send_time_max     =";
-  s << std::setw(16) << log_.d_.bsend_time_max_ / MEGA
-    << std::setw(16) << log_.a_.bsend_time_max_ / MEGA // max
+  s << std::setw(16) << log_.d_.send_time_max_ / MEGA
+    << std::setw(16) << log_.a_.send_time_max_ / MEGA // max
     << "(ms)" << std::endl;
 
   s << "# bcast_num         ="
@@ -3572,15 +3572,15 @@ std::ostream & MP_LAMP::PrintLog(std::ostream & out) const {
 
   if (FLAGS_use_bsend) s << "# bsend_num         =";
   else                 s << "# send_num          =";
-  s << std::setw(16) << log_.d_.bsend_num_
+  s << std::setw(16) << log_.d_.send_num_
     << std::endl;
   if (FLAGS_use_bsend) s << "# bsend_time        =";
   else                 s << "# send_time         =";
-  s << std::setw(16) << log_.d_.bsend_time_ / MEGA
+  s << std::setw(16) << log_.d_.send_time_ / MEGA
     << "(ms)" << std::endl;
   if (FLAGS_use_bsend) s << "# bsend_time_max    =";
   else                 s << "# send_time_max     =";
-  s << std::setw(16) << log_.d_.bsend_time_max_ / MEGA
+  s << std::setw(16) << log_.d_.send_time_max_ / MEGA
     << "(ms)" << std::endl;
 
   s << "# bcast_num         ="
