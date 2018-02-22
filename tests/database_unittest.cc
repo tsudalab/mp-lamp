@@ -69,7 +69,7 @@ TEST (DatabaseTest, ReadTest) {
     // read file into uint64 * array and prepare database
     reader.ReadItems(ifs1, &nu_trans, &nu_items, &bsh,
                      &data, item_names, transaction_names, &max_item_in_transaction);
-    counters[0] = (int)(bsh->nu_bits);
+    counters[0] = (int)(bsh->nu_bits_);
     counters[1] = nu_items; 
     counters[2] = max_item_in_transaction;
     ifs1.close();
@@ -164,7 +164,7 @@ TEST (DatabaseTest, ReadTest2) {
   ifs1.close();
   ifs2.close();
 
-  counters[0] = (int)(bsh->nu_bits);
+  counters[0] = (int)(bsh->nu_bits_);
   counters[1] = nu_items; 
   counters[2] = max_item_in_transaction;
 
@@ -250,7 +250,7 @@ TEST (DatabaseTest, LargeReadTest) {
     // read file into uint64 * array and prepare database
     reader.ReadItems(ifs1, &nu_trans, &nu_items, &bsh,
                      &data, item_names, transaction_names, &max_item_in_transaction);
-    counters[0] = (int)(bsh->nu_bits);
+    counters[0] = (int)(bsh->nu_bits_);
     counters[1] = nu_items; 
     counters[2] = max_item_in_transaction;
     ifs1.close();
@@ -321,7 +321,7 @@ TEST (DatabaseTest, PValueTest) {
     // read file into uint64 * array and prepare database
     reader.ReadItems(ifs1, &nu_trans, &nu_items, &bsh,
                      &data, item_names, transaction_names, &max_item_in_transaction);
-    counters[0] = (int)(bsh->nu_bits);
+    counters[0] = (int)(bsh->nu_bits_);
     counters[1] = nu_items; 
     counters[2] = max_item_in_transaction;
     ifs1.close();
@@ -457,7 +457,7 @@ TEST (DatabaseTest, PValueTest2) {
   ifs1.close();
   ifs2.close();
 
-  counters[0] = (int)(bsh->nu_bits);
+  counters[0] = (int)(bsh->nu_bits_);
   counters[1] = nu_items; 
   counters[2] = max_item_in_transaction;
 
@@ -503,7 +503,7 @@ TEST (DatabaseTest, PMinTestNoPos) {
     // read file into uint64 * array and prepare database
     reader.ReadItems(ifs1, &nu_trans, &nu_items, &bsh,
                      &data, item_names, transaction_names, &max_item_in_transaction);
-    counters[0] = (int)(bsh->nu_bits);
+    counters[0] = (int)(bsh->nu_bits_);
     counters[1] = nu_items; 
     counters[2] = max_item_in_transaction;
     ifs1.close();

@@ -65,7 +65,7 @@ TEST (MPI_BASIC_TEST, InitTest) {
   MPI_Comm_size(MPI_COMM_WORLD, &nu_proc);
 
   // (int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m)
-  MP_LAMP search(rank, nu_proc, FLAGS_n, FLAGS_n_is_ms, FLAGS_w, FLAGS_l, FLAGS_m);
+  MP_LAMP search(rank, nu_proc, FLAGS_n, FLAGS_n_is_ms, FLAGS_w, FLAGS_l, FLAGS_m, std::cout);
 
   Functions4fisher functions(1);
   if (rank==0) {
@@ -94,7 +94,7 @@ TEST (MPI_BASIC_TEST, InitTest2) {
   MPI_Comm_size(MPI_COMM_WORLD, &nu_proc);
 
   // (int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m)
-  MP_LAMP search(rank, nu_proc, FLAGS_n, FLAGS_n_is_ms, FLAGS_w, FLAGS_l, FLAGS_m);
+  MP_LAMP search(rank, nu_proc, FLAGS_n, FLAGS_n_is_ms, FLAGS_w, FLAGS_l, FLAGS_m, std::cout);
 
   Functions4fisher functions(1);
   if (rank==0) {
@@ -121,7 +121,7 @@ TEST (MPI_BASIC_TEST, InitTestLarge) {
   MPI_Comm_size(MPI_COMM_WORLD, &nu_proc);
 
   // (int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m)
-  MP_LAMP search(rank, nu_proc, FLAGS_n, FLAGS_n_is_ms, FLAGS_w, FLAGS_l, FLAGS_m);
+  MP_LAMP search(rank, nu_proc, FLAGS_n, FLAGS_n_is_ms, FLAGS_w, FLAGS_l, FLAGS_m, std::cout);
 
   Functions4fisher functions(1);
   if (rank==0) {

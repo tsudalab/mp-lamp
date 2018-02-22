@@ -55,7 +55,7 @@ class SupportStack {
  public:
   SupportStack(const VariableBitsetHelper<uint64> & helper)
       : bsh (helper) {
-    stack_ = new VariableBitsetArray<uint64>(bsh.nu_bits, kMaxSearchDepth+1);
+    stack_ = new VariableBitsetArray<uint64>(bsh.nu_bits_, kMaxSearchDepth+1);
   }
 
   ~SupportStack() {

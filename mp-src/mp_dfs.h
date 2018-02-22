@@ -132,7 +132,8 @@ class MP_LAMP {
    * w: number of random victim tries
    * l: power of lifeline graph
    */
-  MP_LAMP(int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m);
+  MP_LAMP(int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m,
+          std::ostream & out);
 
   ~MP_LAMP();
 
@@ -295,7 +296,7 @@ class MP_LAMP {
     std::vector< PeriodicLog_T > plog_;
 
     void AggregatePLog(int nu_proc);
-    int sec_max_;
+    int log_size_max_;
     PeriodicLog_T * plog_buf_; // gather results for copying local plog
     PeriodicLog_T * plog_gather_buf_; // gather plog of all ranks here
 
@@ -376,6 +377,10 @@ class MP_LAMP {
 
       long long int node_stack_max_cap_;
       long long int give_stack_max_cap_;
+
+      long long int freq_stack_max_itm_;
+      long long int freq_stack_max_cap_;
+      long long int freq_set_max_itm_;
 
       long long int cleared_tasks_;
 
@@ -786,6 +791,11 @@ class MP_LAMP {
     const VariableLengthItemsetStack & ss_;
   };
 
+  std::ostream & PrintResultsSaveMemory(std::ostream & out) const;
+  std::ostream & PrintSignificantSetSaveMemory(
+      std::ostream & out,
+      std::set<SignificantSetResult, sigset_compare> * set) const;
+
   /** record frequent enough itemset during 2nd phase (candidates for significant itemsets)
    *  (if third phase is enabled) */
   VariableLengthItemsetStack * freq_stack_; // record freq itemsets
@@ -908,6 +918,9 @@ class MP_LAMP {
 
   // static std::stringstream alert_ss;
   // std::ostream& Alert();
+
+  std::ostream & result_out_;
+  int received_results_num_;
 
   //--------
   // testing [2015-10-01 13:54]
