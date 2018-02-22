@@ -2189,8 +2189,13 @@ void MP_LAMP::RecvResultRequest(int src) {
 
   DBG( D(2) << "RecvResultRequest: src=" << src << std::endl; );
 
-  if (IsLeaf()) SendResultReply();
-  else SendResultRequest();
+  if (FLAGS_save_memory) {
+    if (!IsLeaf()) SendResultRequest();
+    SendResultReply();
+  } else {
+    if (IsLeaf()) SendResultReply();
+    else SendResultRequest();
+  }
 }
 
 void MP_LAMP::SendResultReply() {
