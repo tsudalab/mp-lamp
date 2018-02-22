@@ -897,7 +897,7 @@ class MP_LAMP {
   int CallRecv(void * buffer, int count, MPI_Datatype type,
                int src, int tag, MPI_Status * status);
   int CallSend(void * buffer, int count_int, MPI_Datatype type,
-                int dest, int tag);
+               int dest, int tag);
 
   int CallBcast(void * buffer, int data_count, MPI_Datatype type);
   // todo: implement call reduce, call gather

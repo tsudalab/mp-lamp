@@ -2204,13 +2204,13 @@ void MP_LAMP::SendResultReply() {
 
   if (FLAGS_save_memory) {
     // always send directly to rank 0
-    CallBsend(message, size, MPI_INT, 0, Tag::RESULT_REPLY);
+    CallSend(message, size, MPI_INT, 0, Tag::RESULT_REPLY);
 
     DBG( D(2) << "SendResultReply: dst=" << 0
          << std::endl; );
     DBG( final_significant_stack_->PrintAll(D(3,false)); );
   } else {
-    CallBsend(message, size, MPI_INT, bcast_source_, Tag::RESULT_REPLY);
+    CallSend(message, size, MPI_INT, bcast_source_, Tag::RESULT_REPLY);
 
     DBG( D(2) << "SendResultReply: dst=" << bcast_source_
          << std::endl; );
