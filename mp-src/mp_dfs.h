@@ -378,6 +378,10 @@ class MP_LAMP {
       long long int node_stack_max_cap_;
       long long int give_stack_max_cap_;
 
+      long long int freq_stack_max_itm_;
+      long long int freq_stack_max_cap_;
+      long long int freq_set_max_itm_;
+
       long long int cleared_tasks_;
 
     };

@@ -2611,7 +2611,6 @@ void MP_LAMP::RecordFrequentItemset(double pval, double sig_level,
           freq_set_->insert(
               SignificantSetResult(pval, item, sup_num, pos_sup_num)
                             );
-
           if (!(pval <= sig_level)) infrequent_itemset_num_++;
 
         } else {
@@ -2674,6 +2673,14 @@ void MP_LAMP::RecordFrequentItemset(double pval, double sig_level,
       throw std::runtime_error(std::string("unknown mode in RecordFrequentItemset"));
       break;
   }
+
+  // update log
+  log_.d_.freq_stack_max_itm_ =
+      std::max(log_.d_.freq_stack_max_itm_, (long long int)(freq_stack_->NuItemset()));
+  log_.d_.freq_stack_max_cap_ =
+      std::max(log_.d_.freq_stack_max_cap_, (long long int)(freq_stack_->UsedCapacity()));
+  log_.d_.freq_set_max_itm_ =
+      std::max(log_.d_.freq_set_max_itm_, (long long int)(freq_set_->size()));
 }
 
 void MP_LAMP::SortSignificantSets() {
@@ -3499,6 +3506,20 @@ std::ostream & MP_LAMP::PrintAggrLog(std::ostream & out) {
     << std::setw(16) << log_.a_.give_stack_max_cap_ // global
     << std::endl;
 
+  s << "# freq_stack_max_itm="
+    << std::setw(16) << log_.d_.freq_stack_max_itm_ // rank 0
+    << std::setw(16) << log_.a_.freq_stack_max_itm_ // global
+    << std::endl;
+  s << "# freq_stack_max_cap="
+    << std::setw(16) << log_.d_.freq_stack_max_cap_ // rank 0
+    << std::setw(16) << log_.a_.freq_stack_max_cap_ // global
+    << std::endl;
+
+  s << "# freq_set_max_itm  ="
+    << std::setw(16) << log_.d_.freq_set_max_itm_ // rank 0
+    << std::setw(16) << log_.a_.freq_set_max_itm_ // global
+    << std::endl;
+
   s << "# cleared_tasks_    ="
     << std::setw(16) << log_.d_.cleared_tasks_
     << std::setw(16) << log_.a_.cleared_tasks_ // sum
@@ -3799,6 +3820,17 @@ std::ostream & MP_LAMP::PrintLog(std::ostream & out) const {
     << std::setw(16) << log_.d_.give_stack_max_cap_
     << std::endl;
 
+  s << "# freq_stack_max_itm="
+    << std::setw(16) << log_.d_.freq_stack_max_itm_
+    << std::endl;
+  s << "# freq_stack_max_cap="
+    << std::setw(16) << log_.d_.freq_stack_max_cap_
+    << std::endl;
+
+  s << "# freq_set_max_itm  ="
+    << std::setw(16) << log_.d_.freq_set_max_itm_
+    << std::endl;
+
   s << "# cleared_tasks_    ="
     << std::setw(16) << log_.d_.cleared_tasks_ / MEGA
     << std::endl;
@@ -3951,6 +3983,11 @@ void MP_LAMP::Log::LogData::Init() {
   node_stack_max_cap_ = 0ll;
   give_stack_max_cap_ = 0ll;
 
+  freq_stack_max_itm_ = 0ll;
+  freq_stack_max_cap_ = 0ll;
+
+  freq_set_max_itm_ = 0ll;
+
   cleared_tasks_ = 0ll;
 }
 
@@ -4029,6 +4066,14 @@ void MP_LAMP::Log::Aggregate(int nu_proc) {
         std::max(a_.node_stack_max_cap_, gather_buf_[i].node_stack_max_cap_);
     a_.give_stack_max_cap_ =
         std::max(a_.give_stack_max_cap_, gather_buf_[i].give_stack_max_cap_);
+
+    a_.freq_stack_max_itm_ =
+        std::max(a_.freq_stack_max_itm_, gather_buf_[i].freq_stack_max_itm_);
+    a_.freq_stack_max_cap_ =
+        std::max(a_.freq_stack_max_cap_, gather_buf_[i].freq_stack_max_cap_);
+
+    a_.freq_set_max_itm_ =
+        std::max(a_.freq_set_max_itm_, gather_buf_[i].freq_set_max_itm_);
 
     a_.cleared_tasks_ += gather_buf_[i].cleared_tasks_;
   }
