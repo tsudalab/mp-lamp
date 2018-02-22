@@ -296,7 +296,7 @@ class MP_LAMP {
     std::vector< PeriodicLog_T > plog_;
 
     void AggregatePLog(int nu_proc);
-    int sec_max_;
+    int log_size_max_;
     PeriodicLog_T * plog_buf_; // gather results for copying local plog
     PeriodicLog_T * plog_gather_buf_; // gather plog of all ranks here
 

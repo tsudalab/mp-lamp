@@ -81,7 +81,7 @@ DEFINE_bool(save_memory, false, "save memory by not sorting the results");
 DEFINE_int32(d, 0, "debug level. 0: none, higher level produce more log");
 DEFINE_string(debuglogfile, "d", "base filename for debug log");
 DEFINE_bool(log, false, "show log");
-DEFINE_int32(log_period, 1, "take log interval in seconds");
+DEFINE_int32(log_period, 120, "take log interval in seconds");
 
 DEFINE_int32(probe_period, 128, "probe period during process node");
 DEFINE_bool(probe_period_is_ms, false, "true: probe period is milli sec, false: num loops");
@@ -3565,13 +3565,13 @@ std::ostream & MP_LAMP::PrintAggrPLog(std::ostream & out) {
 
   s << "# periodic log of node stack capacity" << std::endl;
   s << "# phase    nano_sec   sec lambda         min           max              mean            sd" << std::endl;
-  for (int si=0;si<log_.sec_max_;si++) {
+  for (int si=0;si<log_.log_size_max_;si++) {
     long long int sum=0ll;
     long long int max=-1;
     long long int min=std::numeric_limits<long long int>::max();
 
     for (int p=0;p<p_;p++) {
-      long long int cap = log_.plog_gather_buf_[p*log_.sec_max_+si].capacity_;
+      long long int cap = log_.plog_gather_buf_[p*log_.log_size_max_+si].capacity_;
       sum += cap;
       max = std::max(max, cap);
       min = std::min(min, cap);
@@ -3579,7 +3579,7 @@ std::ostream & MP_LAMP::PrintAggrPLog(std::ostream & out) {
     double mean = sum / (double)(p_);
     double sq_diff_sum = 0.0;
     for (int p=0;p<p_;p++) {
-      long long int cap = log_.plog_gather_buf_[p*log_.sec_max_+si].capacity_;
+      long long int cap = log_.plog_gather_buf_[p*log_.log_size_max_+si].capacity_;
       double diff = cap - mean;
       sq_diff_sum += diff * diff;
     }
@@ -3858,18 +3858,18 @@ void MP_LAMP::Log::Init() {
 }
 
 void MP_LAMP::Log::GatherLog(int nu_proc) {
-  int sec = plog_.size();
-  MPI_Allreduce(&sec, &sec_max_, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-  assert( sec <= sec_max_ );
+  int log_size = plog_.size();
+  MPI_Allreduce(&log_size, &log_size_max_, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+  assert( log_size <= log_size_max_ );
 
-  if (sec_max_ > 0) {
-    plog_buf_ = new PeriodicLog_T[sec_max_];
-    for (int s=0;s<sec;s++) plog_buf_[s] = plog_[s];
-    for (int s=sec;s<sec_max_;s++) plog_buf_[s].Clear();
+  if (log_size_max_ > 0) {
+    plog_buf_ = new PeriodicLog_T[log_size_max_];
+    for (int n=0;n<log_size;n++) plog_buf_[n] = plog_[n];
+    for (int n=log_size;n<log_size_max_;n++) plog_buf_[n].Clear();
 
-    plog_gather_buf_ = new PeriodicLog_T[nu_proc*sec_max_];
-    MPI_Gather((void*)(plog_buf_), sizeof(PeriodicLog_T) * sec_max_, MPI_CHAR,
-               (void*)(plog_gather_buf_), sizeof(PeriodicLog_T) * sec_max_, MPI_CHAR, 0, MPI_COMM_WORLD);
+    plog_gather_buf_ = new PeriodicLog_T[nu_proc*log_size_max_];
+    MPI_Gather((void*)(plog_buf_), sizeof(PeriodicLog_T) * log_size_max_, MPI_CHAR,
+               (void*)(plog_gather_buf_), sizeof(PeriodicLog_T) * log_size_max_, MPI_CHAR, 0, MPI_COMM_WORLD);
   }
 
   gather_buf_ = new LogData[nu_proc];
