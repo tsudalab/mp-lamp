@@ -141,6 +141,7 @@ bool LCM_Graph::PPCExtension(const SortedItemSet & items,
                              int core_i, // not needed?
                              int new_item,
                              SortedItemSet * ext) const {
+  (void)core_i; // avoiding unused warning
   // todo: reuse this buffer to avoid redundant copy
   if ( items.Full() ) return false;
   (*ext) = items; // copy

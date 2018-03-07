@@ -517,7 +517,7 @@ std::ostream & DatabaseReader<Block>::PrintLCM(std::ostream & out,
     }
   }
 
-  assert(non_zero_index == bsh->NuBits());
+  assert(non_zero_index == (int)(bsh->NuBits()));
 
   out << s.str() << std::flush;
   return out;
@@ -560,7 +560,7 @@ std::ostream & DatabaseReader<Block>::PrintCSV(std::ostream & out,
     }
   }
 
-  assert(non_zero_index == bsh->NuBits());
+  assert(non_zero_index == (int)(bsh->NuBits()));
 
   out << s.str() << std::flush;
   return out;

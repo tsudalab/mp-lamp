@@ -125,6 +125,8 @@ double Functions4fisher::__probability(int x, int a) {
  */
 double Functions4fisher::calPValue(const int sup, const int pos_sup,
                                    const std::vector<double>& tgroup_x, const std::vector<double>& tgroup_y) {
+  (void)tgroup_x; (void)tgroup_y;
+
   int total_col1 = __f_size;
   int total_row1 = sup; //sum( ovalues[0] );
   double p = __pvalTable.getValue(total_row1, pos_sup);

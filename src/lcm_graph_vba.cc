@@ -118,6 +118,7 @@ bool LCM_Graph_VBA<Block>::PPCExtension(const SortedItemSet & items,
                                         int core_i, // not needed?
                                         int new_item,
                                         SortedItemSet * ext_buf) const {
+  (void)core_i; // avoiding warning
   // todo: reuse this buffer to avoid redundant copy
   if ( items.Full() ) return false;
   (*ext_buf) = items; // copy

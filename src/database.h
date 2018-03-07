@@ -308,7 +308,7 @@ class Database {
         for (std::size_t i = 0; i < bsh_->NuBlocks(); i++) {
           Block dtVal = dt[i];
           Block mask = 1u;
-          for (int j = 0; j < VariableBitsetTraits<Block>::bits_per_block; j++) {
+          for (int j = 0; j < (int)(VariableBitsetTraits<Block>::bits_per_block); j++) {
             if ((dtVal & mask) > 0)
               tgroup_x.push_back(pos_val[ptr]);
             else
@@ -372,7 +372,7 @@ class Database {
   int NuAllZeroTrans() const;
   int NuAllZeroItems() const;
 
-  const bool isReverse() const {
+  bool isReverse() const {
     return functions.isReverse();
   }
 

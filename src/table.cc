@@ -237,8 +237,10 @@ void Table::ReadPosNeg(std::istream & is) {
   std::string trimmed_line;
   boost::char_separator<char> sep(", ");
 
+#ifndef NDEBUG
   int nu_lines = CountLines(is);
   assert( nu_transactions_ == nu_lines - 1 );
+#endif
   
   {
     std::getline(is, line); // skip 1st line
