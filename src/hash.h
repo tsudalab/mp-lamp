@@ -107,6 +107,7 @@ template<typename VAL>
 Hash<VAL>::Hash(std::size_t nu_item, int size, bool use_gc, bool size_in_bytes)
     : table_size_(size), use_gc_(use_gc) {
   smalltree_gc_threshold_ = 0;
+  (void)nu_item; (void)size_in_bytes;
   // hoge
   // (HashEntry<VAL>*)hoge
   // 

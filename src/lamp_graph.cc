@@ -109,6 +109,7 @@ bool LampGraph<Block>::PPCExtension(VariableLengthItemsetStack * st,
                                     int core_i, // not needed?
                                     int new_item,
                                     int * ext_buf) const {
+  (void)core_i; // avoiding unused warning
   st->CopyItem(items, ext_buf);
   // ext_buf should have VariableLengthItemsetStack::kMaxItemSet + 1 size
 

@@ -74,7 +74,7 @@ DECLARE_int32(max_sig_size); // 0, "maximum size of significant item set. If 0, 
 
 DEFINE_int32(sig_max, 1024*1024*64, "stack size for holding significant sets");
 
-DEFINE_bool(use_bsend, false, "use bsend");
+DEFINE_bool(use_bsend, true, "use bsend");
 DEFINE_int32(bsend_buffer_size, 1024*1024*64, "size of bsend buffer");
 DEFINE_bool(save_memory, false, "save memory by not sorting the results");
 
@@ -116,6 +116,7 @@ MP_LAMP::MP_LAMP(int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m
       d_ (NULL),
       g_ (NULL),
       bsh_ (NULL),
+      log_ (out),
       timer_ (Timer::GetInstance()),
       pmin_thr_ (NULL),
       cs_thr_ (NULL),
@@ -701,7 +702,9 @@ void MP_LAMP::Probe() {
   // capacity, lambda, phase
   if (phase_ == 1 || phase_ == 2) {
     assert(node_stack_);
-    log_.TakePeriodicLog(node_stack_->NuItemset(), lambda_, phase_);
+    log_.TakePeriodicLog(h_, node_stack_->NuItemset(), lambda_, phase_,
+                         accum_array_[lambda_], cs_thr_[lambda_], expand_num_,
+                         sig_level_, d_->PMin( lambda_-1 ));
   }
 
   if (h_==0) {
@@ -2968,8 +2971,10 @@ bool MP_LAMP::IsLeaf() const {
 }
 
 int MP_LAMP::CallIprobe(MPI_Status * status, int * src, int * tag) {
+#ifndef OPTLOG
   long long int start_time;
   long long int end_time;
+#endif
   log_.d_.iprobe_num_++;
 
   // todo: prepare non-log mode to remove measurement
@@ -3024,8 +3029,10 @@ int MP_LAMP::CallIprobe(MPI_Status * status, int * src, int * tag) {
 
 int MP_LAMP::CallRecv(void * buffer, int data_count, MPI_Datatype type,
                       int src, int tag, MPI_Status * status) {
+#ifndef OPTLOG
   long long int start_time;
   long long int end_time;
+#endif
 
   // todo: prepare non-log mode to remove measurement
   // clock_gettime takes 0.3--0.5 micro sec
@@ -3839,7 +3846,8 @@ std::ostream & MP_LAMP::PrintLog(std::ostream & out) const {
   return out;
 }
 
-MP_LAMP::Log::Log() : plog_buf_ (NULL), plog_gather_buf_ (NULL), gather_buf_ (NULL) {
+MP_LAMP::Log::Log(std::ostream & out) :
+    plog_buf_ (NULL), plog_gather_buf_ (NULL), gather_buf_ (NULL), result_out_(out) {
   Init();
 }
 
@@ -3893,7 +3901,10 @@ void MP_LAMP::Log::FinishPeriodicLog() {
   periodic_log_start_ = -1; // -1 means not started
 }
 
-void MP_LAMP::Log::TakePeriodicLog(long long int capacity, int lambda, int phase) {
+void MP_LAMP::Log::TakePeriodicLog(int rank, long long int capacity, int lambda, int phase,
+                                   long long int cs_num, long long int cs_thr,
+                                   long long int expand_num,
+                                   double sig_level, double pmin) {
   if (periodic_log_start_ >= 0) {
     long long int current_time = Timer::GetInstance()->Elapsed();
     long long int elapsed = current_time - periodic_log_start_;
@@ -3906,6 +3917,23 @@ void MP_LAMP::Log::TakePeriodicLog(long long int capacity, int lambda, int phase
       t.phase_ = phase;
 
       plog_.push_back(t);
+
+      if (rank == 0 && FLAGS_show_progress) {
+        std::stringstream s;
+        s << "# "
+          << "phase=" << phase
+          << "\telapsed=" << elapsed
+          << "\tlambda=" << lambda
+          << "\tcs_num[n>=lambda]=" << cs_num
+          << "\tcs_thr[lambda]=" << cs_thr
+          << "\tsig_lev=" << sig_level
+          << "\tpmin_thr[lambda-1]=" << pmin
+          << "\tnu_expand=" << expand_num
+          << "\tcapacity=" << capacity
+          << std::endl;
+
+        result_out_ << s.str() << std::flush;
+      }
 
       next_log_time_in_second_ += FLAGS_log_period;
     }

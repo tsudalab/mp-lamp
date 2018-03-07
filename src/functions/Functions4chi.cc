@@ -188,6 +188,8 @@ double Functions4chi::__chi2pval(double chi) {
  * @return 
  */
 double Functions4chi::calPValue(const int sup, const int pos_sup, const std::vector<double>& tgroup_x, const std::vector<double>& tgroup_y) {
+  (void)tgroup_x; (void)tgroup_y;
+
   double total_row1 = sup; //sum( ovalues[0] );
   double p = __pvalTable.getValue(sup, pos_sup);
   double chi = __chiTable.getValue(sup, pos_sup);

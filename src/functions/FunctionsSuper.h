@@ -98,6 +98,7 @@ class FunctionsSuper {
    */
   virtual double calPValue(const int sup, const int pos_sup,
                            const std::vector<double>& tgroup_x, const std::vector<double>& tgroup_y) {
+    (void)sup; (void)pos_sup; (void)tgroup_x; (void) tgroup_y;
     return -1;
   };
 

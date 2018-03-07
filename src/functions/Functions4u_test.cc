@@ -278,6 +278,8 @@ void Functions4u_test::__binarySearch(double threshold, const std::vector<double
 
 double Functions4u_test::calPValue(const int sup, const int pos_sup,
                                    const std::vector<double>& tgroup_x, const std::vector<double>& tgroup_y) {
+  (void)sup; (void)pos_sup;
+
   double statistic;
   double z_value;
   double p_value = __uTest(tgroup_x, tgroup_y, z_value, statistic);
