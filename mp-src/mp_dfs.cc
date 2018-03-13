@@ -705,7 +705,7 @@ void MP_LAMP::Probe() {
     log_.TakePeriodicLog(h_, node_stack_->NuItemset(), freq_stack_->NuItemset(),
                          lambda_, phase_,
                          accum_array_[lambda_], cs_thr_[lambda_], expand_num_,
-                         sig_level_, d_->PMin( lambda_-1 ));
+                         GetInterimSigLevel(lambda_), d_->PMin( lambda_-1 ));
   }
 
   if (h_==0) {
