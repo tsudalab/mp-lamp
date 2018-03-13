@@ -702,7 +702,8 @@ void MP_LAMP::Probe() {
   // capacity, lambda, phase
   if (phase_ == 1 || phase_ == 2) {
     assert(node_stack_);
-    log_.TakePeriodicLog(h_, node_stack_->NuItemset(), lambda_, phase_,
+    log_.TakePeriodicLog(h_, node_stack_->NuItemset(), freq_stack_->NuItemset(),
+                         lambda_, phase_,
                          accum_array_[lambda_], cs_thr_[lambda_], expand_num_,
                          sig_level_, d_->PMin( lambda_-1 ));
   }
@@ -3552,14 +3553,15 @@ std::ostream & MP_LAMP::PrintPLog(std::ostream & out) {
   std::stringstream s;
 
   s << "# periodic log of node stack capacity" << std::endl;
-  s << "# phase  nano_sec seconds lambda    capacity" << std::endl;
+  s << "# phase  nano_sec seconds lambda    node_cap    freq_cap" << std::endl;
   for (std::size_t i=0;i<log_.plog_.size();i++) {
     s << "# "
       << std::setw(1)  << log_.plog_[i].phase_
       << std::setw(12) << log_.plog_[i].seconds_
       << std::setw(6) << (int)(log_.plog_[i].seconds_ / 1000000000)
       << std::setw(5)  << log_.plog_[i].lambda_
-      << " " << std::setw(13) << log_.plog_[i].capacity_
+      << " " << std::setw(13) << log_.plog_[i].node_capacity_
+      << " " << std::setw(13) << log_.plog_[i].freq_capacity_
       << std::endl;
   }
 
@@ -3570,39 +3572,65 @@ std::ostream & MP_LAMP::PrintPLog(std::ostream & out) {
 std::ostream & MP_LAMP::PrintAggrPLog(std::ostream & out) {
   std::stringstream s;
 
-  s << "# periodic log of node stack capacity" << std::endl;
-  s << "# phase    nano_sec   sec lambda         min           max              mean            sd" << std::endl;
+  s << "# periodic log of                     node stack capacity                         freq stack capacity" << std::endl;
+  s << "# phase    nano_sec   sec lambda      min        max       mean         sd        min        max       mean         sd" << std::endl;
+  //  s << "# phase    nano_sec   sec lambda         min           max              mean            sd" << std::endl;
   for (int si=0;si<log_.log_size_max_;si++) {
-    long long int sum=0ll;
-    long long int max=-1;
-    long long int min=std::numeric_limits<long long int>::max();
+    long long int nd_sum=0ll;
+    long long int nd_max=-1;
+    long long int nd_min=std::numeric_limits<long long int>::max();
+
+    long long int fr_sum=0ll;
+    long long int fr_max=-1;
+    long long int fr_min=std::numeric_limits<long long int>::max();
 
     for (int p=0;p<p_;p++) {
-      long long int cap = log_.plog_gather_buf_[p*log_.log_size_max_+si].capacity_;
-      sum += cap;
-      max = std::max(max, cap);
-      min = std::min(min, cap);
+      long long int nd_cap = log_.plog_gather_buf_[p*log_.log_size_max_+si].node_capacity_;
+      nd_sum += nd_cap;
+      nd_max = std::max(nd_max, nd_cap);
+      nd_min = std::min(nd_min, nd_cap);
+
+      long long int fr_cap = log_.plog_gather_buf_[p*log_.log_size_max_+si].freq_capacity_;
+      fr_sum += fr_cap;
+      fr_max = std::max(fr_max, fr_cap);
+      fr_min = std::min(fr_min, fr_cap);
+
     }
-    double mean = sum / (double)(p_);
-    double sq_diff_sum = 0.0;
+    double nd_mean = nd_sum / (double)(p_);
+    double nd_sq_diff_sum = 0.0;
+
+    double fr_mean = fr_sum / (double)(p_);
+    double fr_sq_diff_sum = 0.0;
+
     for (int p=0;p<p_;p++) {
-      long long int cap = log_.plog_gather_buf_[p*log_.log_size_max_+si].capacity_;
-      double diff = cap - mean;
-      sq_diff_sum += diff * diff;
+      long long int nd_cap = log_.plog_gather_buf_[p*log_.log_size_max_+si].node_capacity_;
+      double nd_diff = nd_cap - nd_mean;
+      nd_sq_diff_sum += nd_diff * nd_diff;
+
+      long long int fr_cap = log_.plog_gather_buf_[p*log_.log_size_max_+si].freq_capacity_;
+      double fr_diff = fr_cap - fr_mean;
+      fr_sq_diff_sum += fr_diff * fr_diff;
     }
-    double variance = sq_diff_sum / (double)p_;
-    double sd = sqrt(variance);
+    double nd_variance = nd_sq_diff_sum / (double)p_;
+    double nd_sd = sqrt(nd_variance);
+
+    double fr_variance = fr_sq_diff_sum / (double)p_;
+    double fr_sd = sqrt(fr_variance);
 
     s << "# "
       << std::setw(1)  << log_.plog_buf_[si].phase_
       << std::setw(16) << log_.plog_buf_[si].seconds_
       << std::setw(6) << (int)(log_.plog_buf_[si].seconds_ / 1000000000)
       << std::setw(5)  << log_.plog_buf_[si].lambda_
-      << " " << std::setw(13) << min
-      << " " << std::setw(13) << max
-      << std::setprecision(3)
-      << " " << std::setw(17) << mean
-      << " " << std::setw(13) << sd
+      << " " << std::setw(10) << nd_min
+      << " " << std::setw(10) << nd_max
+        // << std::setprecision(3)
+      << " " << std::setw(10) << nd_mean
+      << " " << std::setw(10) << nd_sd
+      << " " << std::setw(10) << fr_min
+      << " " << std::setw(10) << fr_max
+      << " " << std::setw(10) << fr_mean
+      << " " << std::setw(10) << fr_sd
       << std::endl;
   }
 
@@ -3901,7 +3929,10 @@ void MP_LAMP::Log::FinishPeriodicLog() {
   periodic_log_start_ = -1; // -1 means not started
 }
 
-void MP_LAMP::Log::TakePeriodicLog(int rank, long long int capacity, int lambda, int phase,
+void MP_LAMP::Log::TakePeriodicLog(int rank,
+                                   long long int node_capacity,
+                                   long long int freq_capacity,
+                                   int lambda, int phase,
                                    long long int cs_num, long long int cs_thr,
                                    long long int expand_num,
                                    double sig_level, double pmin) {
@@ -3912,7 +3943,8 @@ void MP_LAMP::Log::TakePeriodicLog(int rank, long long int capacity, int lambda,
 
       PeriodicLog_T t;
       t.seconds_ = elapsed;
-      t.capacity_ = capacity;
+      t.node_capacity_ = node_capacity;
+      t.freq_capacity_ = freq_capacity;
       t.lambda_ = lambda;
       t.phase_ = phase;
 
@@ -3929,7 +3961,8 @@ void MP_LAMP::Log::TakePeriodicLog(int rank, long long int capacity, int lambda,
           << "\tsig_lev=" << sig_level
           << "\tpmin_thr[lambda-1]=" << pmin
           << "\tnu_expand=" << expand_num
-          << "\tcapacity=" << capacity
+          << "\tnode_cap=" << node_capacity
+          << "\tfreq_cap=" << freq_capacity
           << std::endl;
 
         result_out_ << s.str() << std::flush;

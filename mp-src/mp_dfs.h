@@ -280,19 +280,22 @@ class MP_LAMP {
     long long int next_log_time_in_second_;
 
     // show this separately for phase_ 1 and 2
-    void TakePeriodicLog(int rank, long long int capacity, int lambda, int phase,
+    void TakePeriodicLog(int rank, long long int node_capacity, long long int freq_capacity,
+                         int lambda, int phase,
                          long long int cs_num, long long int cs_thr,
                          long long int expand_num,
                          double sig_level, double pmin);
     struct PeriodicLog_T {
       void Clear() {
         seconds_ = 0ll;
-        capacity_ = 0ll;
+        node_capacity_ = 0ll;
+        freq_capacity_ = 0ll;
         lambda_ = 0;
         phase_ = 0;
       }
       long long int seconds_;
-      long long int capacity_;
+      long long int node_capacity_;
+      long long int freq_capacity_;
       int lambda_;
       int phase_;
     };
