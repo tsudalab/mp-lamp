@@ -28,15 +28,17 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from __future__ import print_function
-
 import os
-import commands
-import ConfigParser
+import six
+if six.PY2:
+  ConfigParser = six.moves.configparser.SafeConfigParser
+else:
+  ConfigParser = six.moves.configparser.ConfigParser
 
 # todo: set compiler name (CXX) by command line options
 # default values for CXX are g++ and mpicxx
 
-config = ConfigParser.SafeConfigParser()
+config = ConfigParser()
 config.read('local.cfg')
 
 orig_env = Environment(ENV=os.environ)
