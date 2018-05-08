@@ -75,7 +75,7 @@ class VariableLengthItemsetStack {
 
   // move top_n_ and inc nu_itemset_;
   void PushPre();
-  // update 
+  // update
   void PushPost();
   void PushPostNoSort();
   void Pop();
@@ -88,6 +88,11 @@ class VariableLengthItemsetStack {
   bool IncItemNum(int * index);
   bool DecItemNum(int * index);
   void Clear();
+
+  // for thread parallel
+  bool PushOneItem2(int * index, int item);
+  bool PushOneItemset(int * itemset);
+  // end for thread parallel
 
   static int GetItemNum(const int * index);
   static int GetSup(const int * index);
@@ -109,7 +114,7 @@ class VariableLengthItemsetStack {
   int * FirstItemset() const;
   /** Bottom is equal to FirstItemset if nu_itemset_ > 0 */
   int * Bottom() const;
-  
+
   void RemoveOneItemset();
 
   void SortOneSet(int * index);

@@ -201,7 +201,7 @@ MP_LAMP::MP_LAMP(int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m
 
   lifelines_ = new int[z_];
   for (int zi=0;zi<z_;zi++) lifelines_[zi] = -1;
-  
+
   // lifeline initialization
   // cf. Saraswat et al. "Lifeline-Based Global Load Balancing", PPoPP 2008.
   int radix=1;
@@ -228,7 +228,7 @@ MP_LAMP::MP_LAMP(int rank, int nu_proc, int n, bool n_is_ms, int w, int l, int m
   bcast_targets_ = new int[k_echo_tree_branch];
 
   for (int pi=0;pi<p_;pi++) lifelines_activated_[pi] = false;
-  
+
   bcast_source_ = -1;
   echo_waiting_ = false;
 
@@ -1625,6 +1625,8 @@ bool MP_LAMP::ProcessNode(int n) {
   start_time = timer_->Elapsed();
   lap_time = start_time;
 
+  int ppc_ext_buf[1000];
+
   int processed = 0;
   processing_node_ = true;
   while(!node_stack_->Empty()) {
@@ -1633,7 +1635,7 @@ bool MP_LAMP::ProcessNode(int n) {
 
     node_stack_->CopyItem(node_stack_->Top(), itemset_buf_);
     node_stack_->Pop();
-    
+
     // dbg
     DBG( D(3) << "expanded "; );
     DBG( node_stack_->Print(D(3), itemset_buf_); );
@@ -1650,7 +1652,7 @@ bool MP_LAMP::ProcessNode(int n) {
 
     int core_i = g_->CoreIndex(*node_stack_, itemset_buf_);
 
-    int * ppc_ext_buf;
+    // int * ppc_ext_buf;
     // todo: use database reduction
 
     assert(phase_!=1 || node_stack_->GetItemNum(itemset_buf_) != 0);
@@ -1705,21 +1707,27 @@ bool MP_LAMP::ProcessNode(int n) {
 
       bsh_->Copy(sup_buf_, child_sup_buf_);
       int sup_num = bsh_->AndCountUpdate(d_->NthData(new_item), child_sup_buf_);
-      
+
       if (sup_num < lambda_) continue;
       // zoe 2017/01/25
       // to add pruning, add something here
       // like, if (depth_of_child >= threshold) continue;
 
-      node_stack_->PushPre();
-      ppc_ext_buf = node_stack_->Top();
+      // ppc_ext_buf = node_stack_->Top();
+      // int ppc_ext_buf[1000];
+
+      node_stack_->SetItemNum(ppc_ext_buf, 0); // clear item num
+      node_stack_->SetSup(ppc_ext_buf, 0);     // clear sup
 
       bool res = g_->PPCExtension(node_stack_, itemset_buf_,
                                   child_sup_buf_, core_i, new_item,
                                   ppc_ext_buf);
 
       node_stack_->SetSup(ppc_ext_buf, sup_num);
-      node_stack_->PushPostNoSort();
+
+      { // critical section
+        node_stack_->PushOneItemset(ppc_ext_buf);
+      }
 
       if (!res) {// todo: remove this redundancy
         node_stack_->Pop();
@@ -1787,7 +1795,7 @@ bool MP_LAMP::ProcessNodeStraw1(int n) {
 
     node_stack_->CopyItem(node_stack_->Top(), itemset_buf_);
     node_stack_->Pop();
-    
+
     // dbg
     DBG( D(3) << "expanded "; );
     DBG( node_stack_->Print(D(3), itemset_buf_); );
@@ -1855,7 +1863,7 @@ bool MP_LAMP::ProcessNodeStraw1(int n) {
 
       bsh_->Copy(sup_buf_, child_sup_buf_);
       int sup_num = bsh_->AndCountUpdate(d_->NthData(new_item), child_sup_buf_);
-      
+
       if (sup_num < lambda_) continue;
 
       node_stack_->PushPre();
@@ -2036,7 +2044,7 @@ void MP_LAMP::RecvGive(int src, MPI_Status probe_status) {
   CallRecv(give_stack_->Message(), count, MPI_INT, src, Tag::GIVE, &recv_status);
   dtd_.OnRecv();
   assert(src == recv_status.MPI_SOURCE);
-  
+
   int timezone = give_stack_->Timestamp();
   dtd_.UpdateTimeZone(timezone);
 

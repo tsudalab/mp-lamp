@@ -125,7 +125,7 @@ int VariableLengthItemsetStack::GetItemNum(const int * index) {
 }
 
 bool VariableLengthItemsetStack::SetSup(int * index, int sup) {
-  if (m_->used_capacity_ + SUP >= m_->total_capacity_) return false;
+  // if (m_->used_capacity_ + SUP >= m_->total_capacity_) return false;
   index[SUP] = sup;
   return true;
 }
@@ -146,6 +146,21 @@ bool VariableLengthItemsetStack::PushOneItem(int item) {
   index[ITM + item_num] = item;
   bool check = IncItemNum(index);
   if (!check) return false;
+  return true;
+}
+
+bool VariableLengthItemsetStack::PushOneItem2(int * index, int item) {
+  int item_num = GetItemNum(index);
+  index[ITM + item_num] = item;
+  IncItemNum(index);
+  return true;
+}
+
+bool VariableLengthItemsetStack::PushOneItemset(int * itemset) {
+  PushPre();
+  int * top = Top();
+  CopyItem(itemset, top);
+  PushPostNoSort();
   return true;
 }
 
@@ -290,7 +305,7 @@ bool VariableLengthItemsetStack::Merge(VariableLengthItemsetStack * src) {
   // check capacity
   if (this->UsedCapacity() + (src->UsedCapacity()-SENTINEL-1) > this->TotalCapacity())
     return false;
-  
+
   int * next_top = this->Top();
   int di=this->m_->used_capacity_;
   // note: si starts from (SENTINEL+1) to skip timestamp and sentinel
@@ -306,7 +321,7 @@ bool VariableLengthItemsetStack::Merge(VariableLengthItemsetStack * src) {
 
   // for (int i=0;i<sup_max_;i++)
   //   this->sup_hist_[i] += src->sup_hist_[i];
-  
+
   return true;
 
   // todo: limit maximum amount of give to (stack size) / z ???
@@ -316,7 +331,7 @@ bool VariableLengthItemsetStack::MergeStack(int * src_st, int size) {
   // check capacity
   if ( (this->UsedCapacity() + size) > this->TotalCapacity() )
     return false;
-  
+
   int * next_top = this->Top();
   int di=this->m_->used_capacity_;
 
@@ -376,7 +391,7 @@ std::ostream& VariableLengthItemsetStack::Print(std::ostream & out,
   s << "\titems:";
   for (int i=0;i<n;i++)
     s << " " << index[ITM+i];
-  
+
   out << s.str() << std::flush;
   return out;
 }
@@ -399,7 +414,7 @@ std::ostream& VariableLengthItemsetStack::Print(std::ostream & out,
     for (int i=0;i<n;i++)
       s << "\t" << index[ITM+i];
   }
-  
+
   out << s.str() << std::flush;
   return out;
 }

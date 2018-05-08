@@ -95,7 +95,7 @@ int LampGraph<Block>::CoreIndex(const VariableLengthItemsetStack & st,
       continue;
     }
   }
-  
+
   return core_i;
 }
 
@@ -132,7 +132,7 @@ bool LampGraph<Block>::PPCExtension(VariableLengthItemsetStack * st,
     // means cond (iii) not satisfied [uno et al. 2004a] sec. 4.3
   }
 
-  st->PushOneItem(new_item);
+  st->PushOneItem2(ext_buf, new_item);
 
   for (int i=new_item+1 ; i<d_.NuItems() ; i++) { // calculating closure
     // skip existing item
@@ -144,7 +144,7 @@ bool LampGraph<Block>::PPCExtension(VariableLengthItemsetStack * st,
     // if closure_buf.none(), sup is subset of t_.Data()->N(i)
     if ( bsh_->IsSubsetOf( sup, bsh_->N(d_.Data(), i) ) ) {
       // todo: maybe success check is needed
-      st->PushOneItem(i);
+      st->PushOneItem2(ext_buf, i);
     }
   }
 
