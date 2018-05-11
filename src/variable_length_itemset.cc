@@ -117,7 +117,7 @@ void VariableLengthItemsetStack::Pop() {
 bool VariableLengthItemsetStack::SetItemNum(int * index, int num) {
   if (m_->used_capacity_ + NUM >= m_->total_capacity_) return false;
   index[NUM] = (-1) * (num + 1);
-  return false;
+  return true;
 }
 
 int VariableLengthItemsetStack::GetItemNum(const int * index) {
